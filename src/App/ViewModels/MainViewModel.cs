@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PPlusTracklistEditor.App.Services;
 using PPlusTracklistEditor.App.Views;
+using PPlusTracklistEditor.Core.Audio;
 using PPlusTracklistEditor.Core.Library;
 
 namespace PPlusTracklistEditor.App.ViewModels;
@@ -71,6 +72,7 @@ public sealed partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(CanEditBuild));
             DeleteBuildCommand.NotifyCanExecuteChanged();
+            if (_libraryTab is not null) _libraryTab.CurrentBuildName = value.Name;
             LoadStages();
         }
     }
@@ -93,7 +95,8 @@ public sealed partial class MainViewModel : ObservableObject
         Stages.Clear();
         if (SelectedBuild is null) return;
         foreach (var info in SelectedBuild.Stages()) Stages.Add(new StageCardViewModel(SelectedBuild, info));
-        _selectedStage = Stages.FirstOrDefault(s => s.Name == keep);
+        // Keep the stage that was open; otherwise open the first one, so there's always something to look at on arrival.
+        _selectedStage = Stages.FirstOrDefault(s => s.Name == keep) ?? Stages.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedStage));
         if (_selectedStage is not null) OpenEditor();
     }
@@ -230,7 +233,85 @@ public sealed partial class MainViewModel : ObservableObject
 
     private LibraryViewModel? _libraryTab;
     /// <summary>The "Song library" tab (made on first use).</summary>
-    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null) { AddToStageRequested = AddSongToStage };
+    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null)
+    {
+        AddToStageRequested = AddSongToStage,
+        ImportFilesRequested = ImportSongFiles,
+        CurrentBuildName = SelectedBuild?.Name,
+    };
+
+    /// <summary>
+    /// BRSTM files (or folders of them) picked or dropped on the Song library: ask about titles and series, then copy them
+    /// into the library. A single other audio file (MP3, WAV...) goes to the Loop Maker instead, since it needs a loop.
+    /// </summary>
+    private void ImportSongFiles(IReadOnlyList<string> paths)
+    {
+        var brstm = new List<string>();
+        var others = new List<string>();
+        foreach (string path in paths)
+        {
+            if (Directory.Exists(path)) brstm.AddRange(Directory.EnumerateFiles(path, "*.brstm", SearchOption.AllDirectories));
+            else if (Path.GetExtension(path).Equals(".brstm", StringComparison.OrdinalIgnoreCase)) brstm.Add(path);
+            else others.Add(path);
+        }
+        brstm = brstm.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        if (brstm.Count == 0)
+        {
+            if (others.Count == 1 && AudioImport.SupportedExtensions.Contains(Path.GetExtension(others[0]).ToLowerInvariant()))
+            {
+                SelectedTab = LoopMakerTabIndex; // an MP3/WAV needs its loop set first
+                _ = LoopMaker.OpenAsync(others[0]);
+            }
+            else
+                Dialogs.Info(Owner, others.Count == 0
+                    ? "There are no BRSTM songs there."
+                    : "Those aren't BRSTM songs, so they can't go straight into the library.\n\nTo turn an MP3 or WAV into a looping song, use the Loop Maker tab (one file at a time).");
+            return;
+        }
+
+        List<ImportSongItem> items;
+        using (new WaitCursor()) items = brstm.Select(f => new ImportSongItem(f, Library.FindDuplicate(f))).ToList();
+        var dialog = new ImportSongsWindow(items, Library.Songs.SeriesFolders().Order(StringComparer.OrdinalIgnoreCase).ToList()) { Owner = Owner };
+        if (dialog.ShowDialog() != true) return;
+
+        int added = 0;
+        var problems = new List<string>();
+        var toRecycle = new List<string>();
+        foreach (var item in dialog.Chosen)
+        {
+            try
+            {
+                Library.AddSong(item.File, item.Title.Trim(), item.Series.Trim());
+                added++;
+                toRecycle.Add(item.File);
+            }
+            catch (Exception ex) when (ex is MusicLibraryException or IOException or UnauthorizedAccessException)
+            {
+                problems.Add($"{item.FileName}: {ex.Message}");
+            }
+        }
+        if (dialog.RemoveOriginals)
+            foreach (string file in toRecycle)
+            {
+                try
+                {
+                    Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(file, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                        Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+                {
+                    problems.Add($"{Path.GetFileName(file)} was added, but its original couldn't be moved to the Recycle Bin.");
+                }
+            }
+
+        LibraryTab.Reload();
+        string message = added == 1 ? "Added 1 song to your library." : $"Added {added} songs to your library.";
+        if (dialog.RemoveOriginals && added > 0) message += added == 1 ? " The original file is in the Recycle Bin." : " The original files are in the Recycle Bin.";
+        if (others.Count > 0) message += $"\n\n{others.Count} other file{(others.Count == 1 ? " wasn't a BRSTM and was" : "s weren't BRSTMs and were")} skipped.";
+        if (problems.Count > 0) message += "\n\nProblems:\n" + string.Join("\n", problems.Select(p => "• " + p));
+        Dialogs.Info(Owner, message);
+    }
 
     /// <summary>
     /// "Add to a stage…" in the Song library: pick one of the current build's stages, then go to the Stages tab with that

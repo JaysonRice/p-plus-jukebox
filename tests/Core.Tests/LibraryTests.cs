@@ -229,4 +229,17 @@ public class LibraryTests
         Assert.Throws<MusicLibraryException>(() => lib.AddSong(wav, "Song", ""));
         Assert.Throws<MusicLibraryException>(() => lib.AddSong(t.DownloadedBrstm("x.brstm"), "  ", ""));
     }
+
+    [Fact]
+    public void FindDuplicate_SpotsTheSameFile_ButNotADifferentOne()
+    {
+        using var t = new TempSetup();
+        t.StockProjectPlus();
+        var lib = t.CreateLibrary();
+        string path = lib.AddSong(t.DownloadedBrstm("a.brstm", content: 5), "Song A", "Series");
+
+        Assert.Equal(path, lib.FindDuplicate(t.DownloadedBrstm("again.brstm", content: 5)));   // same bytes, other name
+        Assert.Null(lib.FindDuplicate(t.DownloadedBrstm("other.brstm", content: 6)));         // same size, different bytes
+        Assert.Null(lib.FindDuplicate(Path.Combine(t.Downloads, "missing.brstm")));
+    }
 }

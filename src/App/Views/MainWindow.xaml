@@ -118,29 +118,33 @@
                        Visibility="{Binding DataContext.HasEditor, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
 
                 <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="Undo" Command="{Binding UndoCommand}" Style="{StaticResource ToolButton}" ToolTip="Ctrl+Z" />
-                        <Button Content="Redo" Command="{Binding RedoCommand}" Style="{StaticResource ToolButton}" ToolTip="Ctrl+Y" />
+                    <!-- Undo and redo are keyboard-only (Ctrl+Z / Ctrl+Y); the buttons weren't worth the room -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                         <Button Content="Discard changes" Command="{Binding DiscardCommand}" Style="{StaticResource ToolButton}" />
-                        <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource ToolButton}" FontWeight="SemiBold" MinWidth="80" ToolTip="Ctrl+S" />
+                        <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource ToolButton}" FontWeight="SemiBold" MinWidth="80" Margin="0"
+                                ToolTip="Ctrl+S" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding StageTitle}" Style="{StaticResource Heading}" />
+                        <TextBlock Text="{Binding StageTitle}" Style="{StaticResource Heading}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="  • unsaved changes" VerticalAlignment="Bottom" Margin="0,0,0,3" Style="{StaticResource Hint}"
                                    Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </DockPanel>
 
+                <!-- One text button for the main job, small symbol buttons for the rest (hover for what they do). Wraps when narrow. -->
                 <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <Button Content="Add from your library…" Command="{Binding AddFromLibraryCommand}" Style="{StaticResource ToolButton}" />
-                    <Button Content="Add a song file…" Command="{Binding AddFromFileCommand}" Style="{StaticResource ToolButton}"
-                            ToolTip="Pick a .brstm song (you can also drag files onto the list)" />
-                    <Button Content="Remove" Command="{Binding RemoveCommand}" Style="{StaticResource ToolButton}"
-                            ToolTip="Takes the song off this stage. It stays in your library." />
-                    <Button Content="Move up" Command="{Binding MoveUpCommand}" Style="{StaticResource ToolButton}" />
-                    <Button Content="Move down" Command="{Binding MoveDownCommand}" Style="{StaticResource ToolButton}" />
-                    <Button Content="Play / Stop" Command="{Binding PlayCommand}" Style="{StaticResource ToolButton}" ToolTip="Space" />
-                    <Button Content="Reset to default songs" Command="{Binding ResetToDefaultCommand}" Style="{StaticResource ToolButton}"
+                    <Button Content="Add from your library" Command="{Binding AddFromLibraryCommand}" Style="{StaticResource ToolButton}"
+                            FontWeight="SemiBold" Height="32" Margin="0,0,14,0"
+                            ToolTip="Choose songs from your song library to add to this stage" />
+                    <Button Content="&#xE74A;" Command="{Binding MoveUpCommand}" Style="{StaticResource IconButton}"
+                            ToolTip="Move the selected song up" AutomationProperties.Name="Move up" />
+                    <Button Content="&#xE74B;" Command="{Binding MoveDownCommand}" Style="{StaticResource IconButton}"
+                            ToolTip="Move the selected song down" AutomationProperties.Name="Move down" />
+                    <Button Content="&#xE74D;" Command="{Binding RemoveCommand}" Style="{StaticResource IconButton}"
+                            ToolTip="Take the selected song off this stage. It stays in your library. (Delete key)" AutomationProperties.Name="Remove from this stage" />
+                    <Button Content="&#xE768;" Command="{Binding PlayCommand}" Style="{StaticResource IconButton}" Margin="0,0,14,0"
+                            ToolTip="Play or stop the selected song (Space bar)" AutomationProperties.Name="Play or stop" />
+                    <Button Content="Reset to default songs" Command="{Binding ResetToDefaultCommand}" Style="{StaticResource ToolButton}" Height="32"
                             Visibility="{Binding CanResetToDefault, Converter={StaticResource BoolToVis}}" />
                 </WrapPanel>
 
@@ -255,7 +259,7 @@
                 <DataGrid x:Name="SongGrid" ItemsSource="{Binding Songs}" SelectedItem="{Binding SelectedSong}"
                           AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" HeadersVisibility="Column"
                           CanUserSortColumns="False" CanUserReorderColumns="False" GridLinesVisibility="None"
-                          AllowDrop="True" Drop="SongGrid_Drop" DragOver="SongGrid_DragOver" MouseDoubleClick="SongGrid_DoubleClick"
+                          MouseDoubleClick="SongGrid_DoubleClick"
                           AutomationProperties.Name="Songs on this stage">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">

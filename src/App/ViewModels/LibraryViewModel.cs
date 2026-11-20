@@ -20,6 +20,8 @@ public abstract class LibraryRow : ObservableObject
     public abstract bool IsHeader { get; }
     public abstract SeriesGroup Group { get; }
     public virtual string DisplayText => "";
+    /// <summary>Hover text for the name cell; empty for most rows.</summary>
+    public virtual string NameTooltip => "";
     public virtual string Series => "";
     public virtual string LengthText => "";
     public virtual string LoopText => "";
@@ -79,7 +81,11 @@ public sealed partial class LibrarySongItem : LibraryRow
     public IReadOnlyList<string> UsedBy { get; }
     public DateTime Added { get; }
 
-    public override string DisplayText => Name;
+    /// <summary>The name, with a * after it for the few songs that don't loop (hover for the explanation).</summary>
+    public override string DisplayText => DoesNotLoop ? Name + " *" : Name;
+    public override string NameTooltip => DoesNotLoop ? "This song doesn't loop. It plays once, then the stage goes quiet." : "";
+    /// <summary>True once the song's header has been read and it has no loop.</summary>
+    public bool DoesNotLoop => Info is { Loop: null };
     public override string Series => Group.DisplayName;
     public override string AddedText => Added.ToString("d");
     public override string UsedByText => UsedBy.Count == 0 ? "Not used by any build" : "Used by " + string.Join(", ", UsedBy);
@@ -89,7 +95,7 @@ public sealed partial class LibrarySongItem : LibraryRow
         : (UsedBy.Count == 1 ? "Used by 1 build:" : $"Used by {UsedBy.Count} builds:") + string.Concat(UsedBy.Select(b => "\n• " + b));
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LengthText), nameof(LoopText))]
+    [NotifyPropertyChangedFor(nameof(LengthText), nameof(LoopText), nameof(DisplayText), nameof(NameTooltip), nameof(DoesNotLoop))]
     private BrstmInfo? _info;
 
     public TimeSpan? Length => Info?.Duration;
@@ -105,7 +111,8 @@ public sealed partial class LibrarySongItem : LibraryRow
 /// </summary>
 public sealed partial class LibraryViewModel : ObservableObject
 {
-    public sealed record Option(string Label, Func<LibrarySongItem, bool> Matches)
+    /// <param name="Key">Stays the same when the label changes (it names the current build), so the choice survives switching builds.</param>
+    public sealed record Option(string Key, string Label, Func<LibrarySongItem, bool> Matches)
     {
         public override string ToString() => Label;
     }
@@ -166,6 +173,39 @@ public sealed partial class LibraryViewModel : ObservableObject
     [ObservableProperty] private Option? _usage;
     partial void OnUsageChanged(Option? value) => RefreshView();
 
+    private string? _currentBuildName;
+    /// <summary>
+    /// The build being worked on. The "Show" choices are about this build only ("Not in &lt;build&gt;"), however many builds
+    /// there are. Set by the main window when the build changes.
+    /// </summary>
+    public string? CurrentBuildName
+    {
+        get => _currentBuildName;
+        set
+        {
+            if (_currentBuildName == value) return;
+            _currentBuildName = value;
+            BuildUsageOptions();
+            RefreshView();
+        }
+    }
+
+    /// <summary>All songs / not in the current build / in the current build / not in any build. Keeps the chosen kind when the build changes.</summary>
+    private void BuildUsageOptions()
+    {
+        string? keep = Usage?.Key;
+        UsageOptions.Clear();
+        UsageOptions.Add(new Option("all", "All songs", _ => true));
+        if (CurrentBuildName is { } name)
+        {
+            UsageOptions.Add(new Option("notHere", $"Not in \"{name}\"", s => !s.UsedBy.Contains(name)));
+            UsageOptions.Add(new Option("here", $"In \"{name}\"", s => s.UsedBy.Contains(name)));
+        }
+        UsageOptions.Add(new Option("none", "Not in any build", s => s.UsedBy.Count == 0));
+        _usage = UsageOptions.FirstOrDefault(o => o.Key == keep) ?? UsageOptions[0];
+        OnPropertyChanged(nameof(Usage));
+    }
+
     /// <summary>Search + "Show" filter (not collapsing).</summary>
     private bool Matches(LibrarySongItem s)
     {
@@ -187,6 +227,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     public IReadOnlyList<SortOption> SortOptions { get; } =
     [
         new("Name", "Song", (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)),
+        new("Series", "Series", (a, b) => string.Compare(a.Group.SortKey, b.Group.SortKey, StringComparison.OrdinalIgnoreCase)), // "No series" last
         new("Length", "Length", (a, b) => Nullable.Compare(a.Length, b.Length), DefaultDescending: true, Unknown: s => s.Length is null),
         new("Date added", "Added", (a, b) => a.Added.CompareTo(b.Added), DefaultDescending: true),
         new("Build count", "Build count", (a, b) => a.UsedBy.Count.CompareTo(b.UsedBy.Count), DefaultDescending: true),
@@ -214,7 +255,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         return true;
     }
 
-    [ObservableProperty] private bool _groupBySeries = true;
+    // Off by default: grouping sorts only within each series, which makes the sorts far less useful. Turn it on to browse by series.
+    [ObservableProperty] private bool _groupBySeries;
     partial void OnGroupBySeriesChanged(bool value) => RefreshView();
 
     /// <summary>When grouping: series name, then the header, then its songs in the chosen order.</summary>
@@ -227,6 +269,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             if (vm.GroupBySeries)
             {
                 int g = string.Compare(a.Group.SortKey, b.Group.SortKey, StringComparison.OrdinalIgnoreCase);
+                if (vm.Sort.ColumnHeader == "Series" && vm.Descending) g = -g; // sorting by series: the series themselves flip
                 if (g != 0) return g;
                 if (a.IsHeader != b.IsHeader) return a.IsHeader ? -1 : 1;
             }
@@ -311,19 +354,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         var usedGroups = _songs.Select(s => s.Group).Distinct();
         Rows.ReplaceAll(usedGroups.Cast<LibraryRow>().Concat(_songs));
 
-        // Filter choices follow the current builds.
-        string? keepUsage = Usage?.Label;
-        UsageOptions.Clear();
-        UsageOptions.Add(new Option("All songs", _ => true));
-        UsageOptions.Add(new Option("Not used by any build", s => s.UsedBy.Count == 0));
-        foreach (var build in builds)
-        {
-            string name = build.Name;
-            UsageOptions.Add(new Option($"Used by \"{name}\"", s => s.UsedBy.Contains(name)));
-            UsageOptions.Add(new Option($"Not used by \"{name}\"", s => !s.UsedBy.Contains(name)));
-        }
-        _usage = UsageOptions.FirstOrDefault(o => o.Label == keepUsage) ?? UsageOptions[0];
-        OnPropertyChanged(nameof(Usage));
+        BuildUsageOptions();
 
         RefreshView();
         Selected = _songs.FirstOrDefault(s => s.SongPath == keepSelected);
@@ -368,6 +399,17 @@ public sealed partial class LibraryViewModel : ObservableObject
         $"{s.Name} ({s.Series}). {(s.Info is { } i ? $"{s.LengthText}, {(i.ChannelCount == 1 ? "mono" : "stereo")}, {s.LoopText.ToLowerInvariant()}. " : "")}{s.UsedByText}.";
 
     private bool HasSong => SelectedSong is not null;
+
+    /// <summary>Set by the main window: files picked with "Add BRSTM files…" or dropped on the list are handed to it.</summary>
+    public Action<IReadOnlyList<string>>? ImportFilesRequested { get; set; }
+
+    [RelayCommand]
+    private void AddFiles()
+    {
+        var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+        var files = Dialogs.PickFiles(owner, "Choose BRSTM songs to add to your library", "BRSTM songs (*.brstm)|*.brstm|All files|*.*");
+        if (files.Length > 0) ImportFilesRequested?.Invoke(files);
+    }
 
     /// <summary>Set by the main window: "Add to a stage…" hands it the selected song (path and display name).</summary>
     public Action<string, string>? AddToStageRequested { get; set; }

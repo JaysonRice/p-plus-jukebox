@@ -93,7 +93,7 @@ public sealed partial class StageEditorViewModel : ObservableObject
     [RelayCommand]
     private void AddFromLibrary()
     {
-        var window = new LibraryWindow(new LibraryViewModel(_main.Library, _main.Player, pickForStage: Session.DisplayName)) { Owner = Owner };
+        var window = new LibraryWindow(new LibraryViewModel(_main.Library, _main.Player, pickForStage: Session.DisplayName) { CurrentBuildName = Session.Build.Name }) { Owner = Owner };
         if (window.ShowDialog() != true) return;
         AddLibrarySongs(window.PickedSongs);
     }
@@ -115,59 +115,6 @@ public sealed partial class StageEditorViewModel : ObservableObject
         try { foreach (var path in fresh) Session.AddExistingSong(path); }
         catch (MusicLibraryException ex) { Dialogs.Error(Owner, ex.Message); }
         Rebuild(Session.Tracklist.Entries.Count - 1);
-    }
-
-    [RelayCommand]
-    private void AddFromFile()
-    {
-        var files = Dialogs.PickFiles(Owner, "Choose song files",
-            "Songs (*.brstm;*.wav;*.mp3;*.m4a;*.flac)|*.brstm;*.wav;*.mp3;*.m4a;*.flac;*.wma;*.aac;*.ogg|All files|*.*");
-        AddFiles(files);
-    }
-
-    /// <summary>
-    /// Files dropped on the song list or picked with "From a file", one at a time:
-    /// - BRSTMs (already looping songs) just ask for a title and series, or open the loop editor on request.
-    /// - Anything else (WAV, MP3...) opens the loop editor, which makes the BRSTM.
-    /// </summary>
-    public void AddFiles(IEnumerable<string> files)
-    {
-        int added = 0;
-        var series = _main.Library.Songs.SeriesFolders().ToList();
-        foreach (var file in files)
-        {
-            string? brstm = file, title = null, songSeries = null;
-            if (Path.GetExtension(file).Equals(".brstm", StringComparison.OrdinalIgnoreCase))
-            {
-                var dlg = new AddSongWindow(file, series, _main.Player) { Owner = Owner };
-                bool ok = dlg.ShowDialog() == true;
-                if (ok) (title, songSeries) = (dlg.SongTitle, dlg.Series);
-                else if (dlg.WantsLoopEditor) (brstm, title, songSeries) = MakeLoopingSong(file, series, dlg.SongTitle, dlg.Series);
-                else continue;
-            }
-            else (brstm, title, songSeries) = MakeLoopingSong(file, series);
-
-            if (brstm is null || title is null) continue; // cancelled
-            if (added == 0) History.BeforeChange(); // one undo step for the whole drop
-            try
-            {
-                Session.AddSong(brstm, title, songSeries ?? "");
-                added++;
-            }
-            catch (MusicLibraryException ex) { Dialogs.Error(Owner, ex.Message); }
-        }
-        if (added > 0) Rebuild(Session.Tracklist.Entries.Count - 1);
-    }
-
-    /// <summary>Opens the loop editor. Returns the made (temp) BRSTM with its title and series, or nulls if cancelled.</summary>
-    private (string? File, string? Title, string? Series) MakeLoopingSong(string file, IReadOnlyList<string> series, string? title = null, string? songSeries = null)
-    {
-        using var vm = new LoopEditorViewModel(file, series, _main.Player);
-        if (!string.IsNullOrWhiteSpace(title)) vm.Title = title;
-        if (songSeries is not null) vm.Series = songSeries;
-        var window = new LoopEditorWindow(vm) { Owner = Owner };
-        if (window.ShowDialog() != true || vm.OutputFile is null) return (null, null, null);
-        return (vm.OutputFile, vm.Title.Trim(), vm.Series.Trim());
     }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
