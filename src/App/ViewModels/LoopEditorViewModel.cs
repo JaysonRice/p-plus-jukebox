@@ -352,9 +352,35 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
     /// <summary>Clicking the waveform: jumps there while playing, or just moves the blue line while paused.</summary>
     public void SeekTo(int sample)
     {
+        if (Audio is { } a) sample = Math.Clamp(sample, 0, a.Length - 1);
         if (_playingHere) _player.Seek(sample);
-        else Playhead = sample;
+        Playhead = sample;
         OnPropertyChanged(nameof(PlayheadText));
+    }
+
+    private DateTime _lastPlayheadStepAt;
+    private int _lastPlayheadDirection, _playheadRepeat;
+
+    [RelayCommand(CanExecute = nameof(HasAudio))] private void PlayheadEarlier() => StepPlayhead(-1);
+    [RelayCommand(CanExecute = nameof(HasAudio))] private void PlayheadLater() => StepPlayhead(+1);
+
+    /// <summary>
+    /// The blue line's arrows (hold to repeat): 5 ms per click, speeding up while held to ~100 ms per step (a few
+    /// seconds of song per second). Zooms in on the line like the loop arrows do.
+    /// </summary>
+    private void StepPlayhead(int direction)
+    {
+        if (Audio is not { } a) return;
+        var now = DateTime.UtcNow;
+        bool held = _lastPlayheadDirection == direction && (now - _lastPlayheadStepAt).TotalMilliseconds < 250;
+        _playheadRepeat = held ? _playheadRepeat + 1 : 0;
+        _lastPlayheadStepAt = now;
+        _lastPlayheadDirection = direction;
+
+        double ms = _playheadRepeat < 6 ? 5 : Math.Min(100, 5 + (_playheadRepeat - 5) * 5);
+        int from = _playingHere ? Math.Max(0, _player.PositionSamples) : Math.Max(0, Playhead);
+        SeekTo(from + direction * (int)(ms * a.SampleRate / 1000));
+        KeepInCloseView(Playhead);
     }
 
     private void PlayFrom(int sample)
@@ -461,7 +487,7 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
                  {
                      StartEarlierCommand, StartLaterCommand, EndEarlierCommand, EndLaterCommand, StartAtPlayheadCommand,
                      EndAtPlayheadCommand, ZoomAllCommand, ZoomToStartCommand, ZoomToEndCommand, PlayFromBeginningCommand,
-                     PlayFromLoopStartCommand, TestLoopCommand, TogglePlayCommand, SuggestCommand,
+                     PlayFromLoopStartCommand, TestLoopCommand, TogglePlayCommand, SuggestCommand, PlayheadEarlierCommand, PlayheadLaterCommand,
                  })
             c.NotifyCanExecuteChanged();
     }

@@ -95,10 +95,15 @@
                 <Button Content="From loop start" Command="{Binding PlayFromLoopStartCommand}" Style="{StaticResource ToolButton}" Margin="0,0,6,4" />
                 <Button Content="⟲ Test the loop" Command="{Binding TestLoopCommand}" Style="{StaticResource ToolButton}" Margin="0,0,12,4"
                         ToolTip="Plays the last few seconds before the loop end, so you can hear whether the jump back sounds smooth." />
-                <TextBlock VerticalAlignment="Center" Margin="0,0,0,4">
-                    <Run Text="Blue line at" />
-                    <Run Text="{Binding PlayheadText, Mode=OneWay}" FontFamily="Consolas" />
-                </TextBlock>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <Rectangle Width="10" Height="10" Fill="#2F80ED" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Blue line" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <RepeatButton Content="◀" Command="{Binding PlayheadEarlierCommand}" Style="{StaticResource SmallRepeat}"
+                                  ToolTip="Move the blue line a little earlier (hold to keep moving)" AutomationProperties.Name="Blue line earlier" />
+                    <TextBlock Text="{Binding PlayheadText}" FontFamily="Consolas" VerticalAlignment="Center" Margin="6,0" MinWidth="70" TextAlignment="Center" />
+                    <RepeatButton Content="▶" Command="{Binding PlayheadLaterCommand}" Style="{StaticResource SmallRepeat}"
+                                  ToolTip="Move the blue line a little later (hold to keep moving)" AutomationProperties.Name="Blue line later" />
+                </StackPanel>
             </WrapPanel>
             <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
                        Text="Drag the blue line or click to move it · drag the flags to move the loop · scroll to zoom · drag empty space to move around" />
