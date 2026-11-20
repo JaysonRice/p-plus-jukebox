@@ -62,12 +62,15 @@ public sealed class AppLibrary
 
     private static bool CanWriteTo(string dir)
     {
+        // Leaves no trace: a folder made only for the test is removed again (setup relies on "did the folder exist before?").
+        bool created = !Directory.Exists(dir);
         try
         {
             Directory.CreateDirectory(dir);
             string probe = Path.Combine(dir, $".write-test-{Guid.NewGuid():N}");
             File.WriteAllText(probe, "");
             File.Delete(probe);
+            if (created) Directory.Delete(dir);
             return true;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
