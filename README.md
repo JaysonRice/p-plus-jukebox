@@ -3,7 +3,7 @@
 Desktop app (WPF, .NET 10) for editing Project+ stage music: tracklists (`.tlst`) and songs (`.brstm`), including making looping BRSTMs from WAV/MP3.
 Built for people who aren't modders: no BrawlCrate, no hex.
 
-**Status:** steps 1–3 done: tracklist read/write, song library + builds (first-run import from your Project+ folder), and Sync. No UI yet.
+**Status:** steps 1–4 done: tracklist read/write, song library + builds (first-run import from your Project+ folder), Sync, and the audio core (WAV/MP3/BRSTM import, looping BRSTM encode, loop-aware preview stream). No UI yet.
 
 ## Build & test
 ```powershell
@@ -13,7 +13,7 @@ dotnet test --filter "FullyQualifiedName~EveryRealTracklist"    # one test
 dotnet test --logger "console;verbosity=detailed"               # see test output (e.g. how many real files ran)
 ```
 Real-file tests use the music repo and the P+ build on this machine (paths in `tests/Core.Tests/RealData.cs`, overridable with
-`PPLUS_MUSIC_ROOT` / `PPLUS_BUILD_SOUND`). They pass with a "skipped" note if the folders don't exist.
+`PPLUS_MUSIC_ROOT` / `PPLUS_BUILD_SOUND`; the BrawlCrate cross-check uses `PPLUS_BRAWLLIB`). They pass with a "skipped" note if the folders don't exist.
 
 ## Layout
 ```
@@ -23,6 +23,8 @@ src/Core/         no-UI library: file formats + logic (everything testable)
                   StageEditSession (edit + save one stage),
                   SongFileNames (safe names), StageNames (pretty names), DiscSongs (Brawl disc song names)
   Sync/           BuildSync: plan + execute a sync to a Project+ folder (pf\sound only)
+  Audio/          AudioImport (WAV direct, MP3/M4A/FLAC via Windows Media Foundation, BRSTM), BrstmFile (info, decode,
+                  encode with loop, block-aligned like stock songs), AudioOps (resample, normalize, looping preview stream)
 tests/Core.Tests/ xUnit
 ```
 
@@ -31,4 +33,4 @@ See `TlstFile.cs` (header doc) and `pplus-wii/MODDING_NOTES.md`. Field names mat
 
 ## Credits
 - Disc song names: BrawlManagers `SongIDMap` (MIT, © 2014 libertyernie).
-- Planned audio libraries: VGAudio (MIT), NAudio (MIT).
+- Audio: VGAudio (MIT, © Alex Barney) for BRSTM/DSP-ADPCM, NAudio (MIT, © Mark Heath) for decoding, resampling and playback.

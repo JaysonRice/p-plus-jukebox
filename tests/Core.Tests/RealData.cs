@@ -16,6 +16,12 @@ internal static class RealData
     /// <summary>Backup of the old SD card; its Castle_Siege.tlst has 11 junk bytes after the header's file size.</summary>
     public const string JunkTrailingTlst = @"C:\Users\jrice\Desktop\Tussle Build\Project+\pf\sound\tracklist\Castle_Siege.tlst";
 
+    /// <summary>BrawlCrate's BrawlLib.dll (32-bit .NET Framework), used as an independent check that our BRSTMs open. Override with PPLUS_BRAWLLIB.</summary>
+    public static string BrawlLib =>
+        Environment.GetEnvironmentVariable("PPLUS_BRAWLLIB") ?? @"C:\Users\jrice\Desktop\Stream Assets\BrawlCrate\BrawlLib.dll";
+
+    public const string PowerShell32 = @"C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe";
+
     public static IEnumerable<string> AllTracklists() =>
         new[] { MusicRoot, BuildSound }
             .Select(root => Path.Combine(root, "tracklist"))

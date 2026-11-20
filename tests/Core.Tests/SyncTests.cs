@@ -221,7 +221,9 @@ public class SyncTests(ITestOutputHelper output)
         if (!Directory.Exists(RealData.MusicRoot)) { output.WriteLine("Music repo not present; second half skipped."); return; }
         ImportResult imported = lib.ImportMusicFolder(MusicFolder.Open(RealData.MusicRoot), "Moist");
         Build moist = imported.Build;
-        Assert.Equal(4, imported.FixedPaths);                            // the 4 entries written with "\" (2025-10 commits)
+        // 4 entries were written with "\" (2025-10 commits); fixed in the repo 2026-11-20. Either way, none survive the import.
+        Assert.Contains(imported.FixedPaths, new[] { 0, 4 });
+        Assert.DoesNotContain(moist.SongPathsUsed(), p => p.Contains('\\'));
         SyncPlan moistPlan = BuildSync.Plan(moist, ProjectPlusFolder.Resolve(card));
         BuildSync.Execute(moistPlan);
 
