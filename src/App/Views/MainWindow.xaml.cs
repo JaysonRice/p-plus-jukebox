@@ -63,17 +63,6 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private void SongGrid_DragOver(object sender, DragEventArgs e)
-    {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
-        e.Handled = true;
-    }
-
-    private void SongGrid_Drop(object sender, DragEventArgs e)
-    {
-        if (e.Data.GetData(DataFormats.FileDrop) is string[] files) _vm.Editor?.AddFiles(files);
-    }
-
     private void SongGrid_DoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (_vm.Editor?.PlayCommand.CanExecute(null) == true) _vm.Editor.PlayCommand.Execute(null);
