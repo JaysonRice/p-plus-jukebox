@@ -355,7 +355,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     // ---- selection, playback, delete ----
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DeleteCommand), nameof(PlayCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteCommand), nameof(PlayCommand), nameof(AddToStageCommand))]
     [NotifyPropertyChangedFor(nameof(SelectedDetails))]
     private LibraryRow? _selected;
 
@@ -368,6 +368,15 @@ public sealed partial class LibraryViewModel : ObservableObject
         $"{s.Name} ({s.Series}). {(s.Info is { } i ? $"{s.LengthText}, {(i.ChannelCount == 1 ? "mono" : "stereo")}, {s.LoopText.ToLowerInvariant()}. " : "")}{s.UsedByText}.";
 
     private bool HasSong => SelectedSong is not null;
+
+    /// <summary>Set by the main window: "Add to a stage…" hands it the selected song (path and display name).</summary>
+    public Action<string, string>? AddToStageRequested { get; set; }
+
+    [RelayCommand(CanExecute = nameof(HasSong))]
+    private void AddToStage()
+    {
+        if (SelectedSong is { } s) AddToStageRequested?.Invoke(s.SongPath, s.Name);
+    }
 
     [RelayCommand(CanExecute = nameof(HasSong))]
     private void Play() => Preview.TogglePlay(); // Space / double-click: play or pause in the player strip

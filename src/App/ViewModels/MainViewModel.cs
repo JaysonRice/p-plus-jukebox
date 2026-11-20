@@ -230,7 +230,23 @@ public sealed partial class MainViewModel : ObservableObject
 
     private LibraryViewModel? _libraryTab;
     /// <summary>The "Song library" tab (made on first use).</summary>
-    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null);
+    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null) { AddToStageRequested = AddSongToStage };
+
+    /// <summary>
+    /// "Add to a stage…" in the Song library: pick one of the current build's stages, then go to the Stages tab with that
+    /// stage open and the song added (unsaved, so it can still be undone or reordered).
+    /// </summary>
+    private void AddSongToStage(string songPath, string songName)
+    {
+        if (SelectedBuild is null || Stages.Count == 0) return;
+        var picker = new StagePickerWindow(songName, Stages.ToList(), SelectedStage) { Owner = Owner };
+        if (picker.ShowDialog() != true || picker.Chosen is not { } stage) return;
+
+        SelectedStage = stage; // if another stage has unsaved changes, this asks about them first
+        if (SelectedStage != stage) return; // they chose to stay where they were
+        SelectedTab = StagesTabIndex;
+        Editor?.AddLibrarySongs([songPath]);
+    }
 
     private LoopMakerViewModel? _loopMaker;
     /// <summary>The "Loop Maker" tab: make a looping song straight into the library.</summary>

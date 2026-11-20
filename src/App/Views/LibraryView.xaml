@@ -70,6 +70,9 @@
         <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
             <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Hint}" VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal">
+                <Button Content="Add to a stage…" Command="{Binding AddToStageCommand}" Style="{StaticResource ToolButton}" FontWeight="SemiBold"
+                        Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
+                        ToolTip="Choose a stage in the current build to add the selected song to" />
                 <Button Content="Delete song…" Command="{Binding DeleteCommand}" Style="{StaticResource ToolButton}"
                         Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
                         ToolTip="Only songs no build uses can be deleted" />
