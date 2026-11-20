@@ -5,23 +5,28 @@
     <DockPanel>
         <!-- Find: search, which builds use it, sort, grouping -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <Grid DockPanel.Dock="Left" Width="280" Margin="0,0,12,0">
+            <Grid DockPanel.Dock="Left" Width="230" Margin="0,0,12,0" VerticalAlignment="Center">
                 <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}" Padding="6,4" />
                 <TextBlock Text="Search songs (title or series)" IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.5"
                            Visibility="{Binding SearchText, Converter={StaticResource EmptyToVis}}" />
             </Grid>
+            <!-- Far right of the filter row -->
+            <Button DockPanel.Dock="Right" Content="Add BRSTM files" Command="{Binding AddFilesCommand}" FontWeight="Bold" Padding="14,5" Margin="12,0,0,0"
+                    VerticalAlignment="Center" Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
+                    ToolTip="Add songs other people made (BRSTM files) to your library. Pick several at once, or drag files or whole folders onto the song list. You can choose a title and series for each before they're added."
+                    AutomationProperties.Name="Add BRSTM files" />
             <WrapPanel VerticalAlignment="Center">
                 <TextBlock Text="Show:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <ComboBox ItemsSource="{Binding UsageOptions}" SelectedItem="{Binding Usage}" DisplayMemberPath="Label" MinWidth="190" Margin="0,0,12,0"
+                <ComboBox ItemsSource="{Binding UsageOptions}" SelectedItem="{Binding Usage}" DisplayMemberPath="Label" MinWidth="172" Margin="0,0,10,0"
                           AutomationProperties.Name="Show songs" />
                 <TextBlock Text="Sort by:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort}" DisplayMemberPath="Label" MinWidth="140" Margin="0,0,12,0"
+                <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort}" DisplayMemberPath="Label" MinWidth="112" Margin="0,0,10,0"
                           ToolTip="Click a column heading in the table to flip the order (A to Z / Z to A, shortest / longest...)"
                           AutomationProperties.Name="Sort songs" />
-                <CheckBox Content="Group by series" IsChecked="{Binding GroupBySeries}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <CheckBox Content="Group by series" IsChecked="{Binding GroupBySeries}" VerticalAlignment="Center" Margin="0,0,10,0" />
                 <StackPanel Orientation="Horizontal" Visibility="{Binding GroupBySeries, Converter={StaticResource BoolToVis}}">
-                    <Button Content="Expand all" Command="{Binding ExpandAllCommand}" Style="{StaticResource ToolButton}" />
-                    <Button Content="Collapse all" Command="{Binding CollapseAllCommand}" Style="{StaticResource ToolButton}" />
+                    <Button Content="Expand all" Command="{Binding ExpandAllCommand}" Style="{StaticResource ToolButton}" Padding="8,4" Margin="0,0,4,0" />
+                    <Button Content="Collapse all" Command="{Binding CollapseAllCommand}" Style="{StaticResource ToolButton}" Padding="8,4" Margin="0" />
                 </StackPanel>
             </WrapPanel>
         </DockPanel>
@@ -70,9 +75,6 @@
         <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
             <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Hint}" VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal">
-                <Button Content="Add BRSTM files…" Command="{Binding AddFilesCommand}" Style="{StaticResource ToolButton}"
-                        Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
-                        ToolTip="Add songs other people made (BRSTM files). You can also drag them onto this list." />
                 <Button Content="Add to a stage…" Command="{Binding AddToStageCommand}" Style="{StaticResource ToolButton}" FontWeight="SemiBold"
                         Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
                         ToolTip="Choose a stage in the current build to add the selected song to" />
@@ -108,6 +110,7 @@
                     <DataGridTextColumn.ElementStyle>
                         <!-- Songs sit indented under their series header while grouping. -->
                         <Style TargetType="TextBlock">
+                            <Setter Property="ToolTip" Value="{Binding NameTooltip}" />
                             <Style.Triggers>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
@@ -120,9 +123,8 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn x:Name="SeriesColumn" Header="Series" Binding="{Binding Series}" Width="1.5*" CanUserSort="False" />
+                <DataGridTextColumn x:Name="SeriesColumn" Header="Series" Binding="{Binding Series}" Width="1.5*" />
                 <DataGridTextColumn Header="Length" Binding="{Binding LengthText}" Width="70" />
-                <DataGridTextColumn Header="Loop" Binding="{Binding LoopText}" Width="85" CanUserSort="False" />
                 <!-- How many builds use the song; hover to see which -->
                 <DataGridTextColumn Header="Build count" Binding="{Binding BuildCountText}" Width="100">
                     <DataGridTextColumn.ElementStyle>

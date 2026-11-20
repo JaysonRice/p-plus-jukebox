@@ -20,6 +20,8 @@ public abstract class LibraryRow : ObservableObject
     public abstract bool IsHeader { get; }
     public abstract SeriesGroup Group { get; }
     public virtual string DisplayText => "";
+    /// <summary>Hover text for the name cell; empty for most rows.</summary>
+    public virtual string NameTooltip => "";
     public virtual string Series => "";
     public virtual string LengthText => "";
     public virtual string LoopText => "";
@@ -79,7 +81,11 @@ public sealed partial class LibrarySongItem : LibraryRow
     public IReadOnlyList<string> UsedBy { get; }
     public DateTime Added { get; }
 
-    public override string DisplayText => Name;
+    /// <summary>The name, with a * after it for the few songs that don't loop (hover for the explanation).</summary>
+    public override string DisplayText => DoesNotLoop ? Name + " *" : Name;
+    public override string NameTooltip => DoesNotLoop ? "This song doesn't loop. It plays once, then the stage goes quiet." : "";
+    /// <summary>True once the song's header has been read and it has no loop.</summary>
+    public bool DoesNotLoop => Info is { Loop: null };
     public override string Series => Group.DisplayName;
     public override string AddedText => Added.ToString("d");
     public override string UsedByText => UsedBy.Count == 0 ? "Not used by any build" : "Used by " + string.Join(", ", UsedBy);
@@ -89,7 +95,7 @@ public sealed partial class LibrarySongItem : LibraryRow
         : (UsedBy.Count == 1 ? "Used by 1 build:" : $"Used by {UsedBy.Count} builds:") + string.Concat(UsedBy.Select(b => "\n• " + b));
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LengthText), nameof(LoopText))]
+    [NotifyPropertyChangedFor(nameof(LengthText), nameof(LoopText), nameof(DisplayText), nameof(NameTooltip), nameof(DoesNotLoop))]
     private BrstmInfo? _info;
 
     public TimeSpan? Length => Info?.Duration;
@@ -187,6 +193,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     public IReadOnlyList<SortOption> SortOptions { get; } =
     [
         new("Name", "Song", (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)),
+        new("Series", "Series", (a, b) => string.Compare(a.Group.SortKey, b.Group.SortKey, StringComparison.OrdinalIgnoreCase)), // "No series" last
         new("Length", "Length", (a, b) => Nullable.Compare(a.Length, b.Length), DefaultDescending: true, Unknown: s => s.Length is null),
         new("Date added", "Added", (a, b) => a.Added.CompareTo(b.Added), DefaultDescending: true),
         new("Build count", "Build count", (a, b) => a.UsedBy.Count.CompareTo(b.UsedBy.Count), DefaultDescending: true),
@@ -227,6 +234,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             if (vm.GroupBySeries)
             {
                 int g = string.Compare(a.Group.SortKey, b.Group.SortKey, StringComparison.OrdinalIgnoreCase);
+                if (vm.Sort.ColumnHeader == "Series" && vm.Descending) g = -g; // sorting by series: the series themselves flip
                 if (g != 0) return g;
                 if (a.IsHeader != b.IsHeader) return a.IsHeader ? -1 : 1;
             }
