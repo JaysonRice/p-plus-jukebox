@@ -61,7 +61,10 @@ public static class SongFileNames
     /// </summary>
     public static string UniqueSongPath(Func<string, bool> exists, string series, string title, IEnumerable<string>? alsoTaken = null)
     {
-        string seriesName = Sanitize(series) ?? throw new MusicLibraryException("Please give the series a name (letters or numbers).");
+        // Series is optional: a song without one sits directly in strm/ (path "Title" instead of "Series/Title").
+        string? seriesName = string.IsNullOrWhiteSpace(series)
+            ? null
+            : Sanitize(series) ?? throw new MusicLibraryException("Please give the series a name with some letters or numbers in it, or leave it empty.");
         string baseName = Sanitize(title) ?? throw new MusicLibraryException("Please give the song a title with some letters or numbers in it.");
         var taken = new HashSet<string>(alsoTaken ?? [], StringComparer.OrdinalIgnoreCase); // FAT32 is case-insensitive
 
@@ -69,7 +72,7 @@ public static class SongFileNames
         {
             string suffix = n == 1 ? "" : $" ({n})";
             string name = baseName.Length + suffix.Length > MaxNameLength ? baseName[..(MaxNameLength - suffix.Length)].TrimEnd() + suffix : baseName + suffix;
-            string path = $"{seriesName}/{name}";
+            string path = seriesName is null ? name : $"{seriesName}/{name}";
             if (!taken.Contains(path) && !exists(path)) return path;
         }
     }

@@ -41,6 +41,16 @@ public class LibraryTests
     }
 
     [Fact]
+    public void DefaultRoot_RealWriteCheck_LeavesNoFolderBehind()
+    {
+        using var t = new TempSetup();
+        string root = AppLibrary.DefaultRoot(out bool fallback, appDir: t.Root);
+        Assert.False(fallback);
+        Assert.Equal(Path.Combine(t.Root, "Library"), root);
+        Assert.False(Directory.Exists(root)); // first-run setup can tell it made the folder itself
+    }
+
+    [Fact]
     public void DefaultRoot_FallsBackToLocalAppData_WhenAppFolderIsReadOnly()
     {
         string root = AppLibrary.DefaultRoot(out bool fallback, appDir: @"C:\Program Files\Editor", canWrite: _ => false);

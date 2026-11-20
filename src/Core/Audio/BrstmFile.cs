@@ -55,6 +55,34 @@ public static class BrstmFile
         return new BrstmInfo(format.SampleRate, format.ChannelCount, format.SampleCount, LoopOf(format));
     }
 
+    /// <summary>
+    /// Like <see cref="ReadInfo(string)"/> but reads only the start of the file (the HEAD section), so listing
+    /// hundreds of songs with their lengths is fast. Returns null if the header isn't laid out as expected.
+    ///
+    /// RSTM layout: file header (0x10 = offset of HEAD). HEAD = "HEAD", size, then 3 references (u32 marker + u32 offset,
+    /// relative to HEAD+8). The first points at the stream info: u8 codec, u8 loop flag, u8 channels, pad,
+    /// u16 sample rate, pad, u32 loop start, u32 total samples.
+    /// </summary>
+    public static BrstmInfo? ReadHeaderInfo(string path)
+    {
+        Span<byte> b = stackalloc byte[4096];
+        int n;
+        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1)) n = fs.ReadAtLeast(b, b.Length, throwOnEndOfStream: false);
+        b = b[..n];
+        if (n < 0x40 || !b[..4].SequenceEqual("RSTM"u8)) return null;
+        int head = (int)BinaryPrimitives.ReadUInt32BigEndian(b[0x10..]);
+        if (head + 0x10 > n || !b.Slice(head, 4).SequenceEqual("HEAD"u8)) return null;
+        int info = head + 8 + (int)BinaryPrimitives.ReadUInt32BigEndian(b[(head + 0x0C)..]);
+        if (info + 0x10 > n) return null;
+        bool loops = b[info + 1] != 0;
+        int channels = b[info + 2];
+        int rate = BinaryPrimitives.ReadUInt16BigEndian(b[(info + 4)..]);
+        int loopStart = (int)BinaryPrimitives.ReadUInt32BigEndian(b[(info + 8)..]);
+        int samples = (int)BinaryPrimitives.ReadUInt32BigEndian(b[(info + 0x0C)..]);
+        if (rate == 0 || channels == 0 || samples <= 0) return null;
+        return new BrstmInfo(rate, channels, samples, loops ? new LoopPoints(loopStart, samples) : null);
+    }
+
     /// <summary>Decodes a BRSTM to 16-bit PCM plus its loop (null if it doesn't loop).</summary>
     public static (PcmAudio Audio, LoopPoints? Loop) Decode(string path) => Decode(File.ReadAllBytes(path));
 

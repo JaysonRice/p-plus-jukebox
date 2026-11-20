@@ -28,6 +28,20 @@ public class NamingTests
         Assert.Equal(SongFileNames.MaxNameLength, SongFileNames.Sanitize(new string('a', 200))!.Length);
 
     [Theory]
+    [InlineData("Kirby", "Royal Road", "Kirby/Royal Road")]
+    [InlineData("", "Royal Road", "Royal Road")]      // no series: straight into strm/
+    [InlineData("   ", "Royal Road", "Royal Road")]
+    public void UniqueSongPath_SeriesIsOptional(string series, string title, string expected) =>
+        Assert.Equal(expected, SongFileNames.UniqueSongPath(_ => false, series, title));
+
+    [Fact]
+    public void UniqueSongPath_NoSeries_StillAvoidsClashes()
+    {
+        Assert.Equal("Royal Road (2)", SongFileNames.UniqueSongPath(p => p == "Royal Road", "", "Royal Road"));
+        Assert.Throws<MusicLibraryException>(() => SongFileNames.UniqueSongPath(_ => false, "???", "Royal Road")); // typed, but nothing usable
+    }
+
+    [Theory]
     [InlineData("Battlefield", "Battlefield")]
     [InlineData("Battlefield_Melee", "Battlefield (Melee)")]
     [InlineData("Battlefield_64", "Battlefield (64)")]

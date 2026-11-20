@@ -173,6 +173,19 @@ public sealed class StageEditSession
         _savedBytes = bytes;
     }
 
+    /// <summary>A copy of the current songs and queued files, for Undo.</summary>
+    public StageSnapshot Snapshot() =>
+        new(Tracklist.Entries.Select(e => e.Clone()).ToArray(), _pending.ToArray());
+
+    /// <summary>Puts the songs and queued files back the way a <see cref="Snapshot"/> had them.</summary>
+    public void Restore(StageSnapshot snapshot)
+    {
+        Tracklist.Entries.Clear();
+        Tracklist.Entries.AddRange(snapshot.Entries.Select(e => e.Clone()));
+        _pending.Clear();
+        _pending.AddRange(snapshot.Pending);
+    }
+
     internal static bool IsBrstm(string file)
     {
         Span<byte> magic = stackalloc byte[4];
