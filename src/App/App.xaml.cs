@@ -13,6 +13,13 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += OnUnhandled;
+        // Lagoon colors, light or dark. Follows Windows until there is a setting; PPLUS_THEME=light|dark forces one (for testing).
+        ThemeService.Initialize(Environment.GetEnvironmentVariable("PPLUS_THEME")?.ToLowerInvariant() switch
+        {
+            "dark" => ThemeChoice.Dark,
+            "light" => ThemeChoice.Light,
+            _ => ThemeChoice.FollowWindows,
+        });
         NewSongFiles.CleanUpOld();
 
         string root = AppLibrary.DefaultRoot(out bool usedFallback);

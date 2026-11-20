@@ -1,0 +1,42 @@
+#:property TargetFramework=net10.0-windows
+#:property UseWPF=true
+#:property PublishAot=false
+#:property NoWarn=WPF0001
+using System.Reflection;
+using System.Text;
+using System.Windows;
+using System.Windows.Media;
+var sb = new StringBuilder();
+var t = new Thread(() =>
+{
+    _ = new Application();
+    foreach (var theme in new[] { "Light", "Dark" })
+    {
+        var d = new ResourceDictionary { Source = new Uri($"pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.{theme}.xaml") };
+        var entries = new List<(string Key, string Color)>();
+        void Walk(ResourceDictionary r)
+        {
+            foreach (var m in r.MergedDictionaries) Walk(m);
+            foreach (object k in r.Keys)
+            {
+                // Read without resolving: the raw dictionary entry is the brush; its Color is still a reference.
+                if (r[k] is SolidColorBrush b)
+                {
+                    object local = b.ReadLocalValue(SolidColorBrush.ColorProperty);
+                    if (local.GetType().Name == "ResourceReferenceExpression")
+                    {
+                        var key = local.GetType().GetProperty("ResourceKey", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(local)?.ToString();
+                        if (key is not null && key.StartsWith("AccentColor")) entries.Add((k.ToString()!, key));
+                    }
+                }
+            }
+        }
+        Walk(d);
+        sb.AppendLine($"    public static readonly (string Key, string Color)[] {theme} =\n    [");
+        foreach (var (k, c) in entries.OrderBy(e => e.Key)) sb.AppendLine($"        (\"{k}\", \"{c}\"),");
+        sb.AppendLine("    ];\n");
+        Console.WriteLine($"{theme}: {entries.Count} accent brushes");
+    }
+});
+t.SetApartmentState(ApartmentState.STA); t.Start(); t.Join();
+System.IO.File.WriteAllText(args[0], sb.ToString());

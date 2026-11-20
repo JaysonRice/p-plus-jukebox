@@ -1,0 +1,34 @@
+<!-- Lagoon colors, light (generated from the palette page; see PLAN.md). ThemeService copies these into Application.Resources,
+     so they override the Fluent theme's accent colors. Brushes use literal colors on purpose: they are copied, not referenced. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="AccentColor">#1F8452</Color>
+    <Color x:Key="AccentColorDark3">#114A2E</Color>
+    <Color x:Key="AccentColorDark2">#186740</Color>
+    <Color x:Key="AccentColorDark1">#1F8452</Color>
+    <Color x:Key="AccentColorLight1">#27A567</Color>
+    <Color x:Key="AccentColorLight2">#2FC67B</Color>
+    <Color x:Key="AccentColorLight3">#49D48F</Color>
+    <Color x:Key="SystemAccentColor">#1F8452</Color>
+    <Color x:Key="SystemAccentColorDark3">#114A2E</Color>
+    <Color x:Key="SystemAccentColorDark2">#186740</Color>
+    <Color x:Key="SystemAccentColorDark1">#1F8452</Color>
+    <Color x:Key="SystemAccentColorLight1">#27A567</Color>
+    <Color x:Key="SystemAccentColorLight2">#2FC67B</Color>
+    <Color x:Key="SystemAccentColorLight3">#49D48F</Color>
+    <Color x:Key="ApplicationBackgroundColor">#EEF2F0</Color>
+    <SolidColorBrush x:Key="LagoonAccentBrush" Color="#1F8452" />
+    <SolidColorBrush x:Key="LagoonOnAccentBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="LagoonPlaybackBrush" Color="#1F7A7A" />
+    <SolidColorBrush x:Key="LagoonAttentionBrush" Color="#1F6EBD" />
+    <SolidColorBrush x:Key="LagoonEndBrush" Color="#C4472F" />
+    <SolidColorBrush x:Key="LagoonEmptyBrush" Color="#DAE2DE" />
+    <SolidColorBrush x:Key="LagoonMutedBrush" Color="#5C7066" />
+    <SolidColorBrush x:Key="LagoonRuleBrush" Color="#CCD7D1" />
+    <SolidColorBrush x:Key="LagoonSurfaceBrush" Color="#F9FBFA" />
+    <SolidColorBrush x:Key="LagoonInkBrush" Color="#14241C" />
+    <SolidColorBrush x:Key="LagoonOnPlaybackBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="LagoonOnAttentionBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="LagoonOnEndBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#EEF2F0" />
+</ResourceDictionary>
