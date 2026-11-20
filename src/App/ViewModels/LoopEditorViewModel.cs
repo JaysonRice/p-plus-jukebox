@@ -104,7 +104,8 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
         if (marker == LoopMarker.Start)
         {
             _loopStart = Math.Clamp(sample, 0, Math.Max(0, _loopEnd - min));
-            if (_suggestionsFor != _loopStart) SuggestionText = null; // old suggestions were for the old start
+            bool fromSuggestion = _pairs is { } ls && _pairIndex >= 0 && ls[_pairIndex].Start == _loopStart;
+            if (!fromSuggestion && _suggestionsFor != _loopStart) SuggestionText = null; // old suggestions were for the old start
         }
         else _loopEnd = Math.Clamp(sample, Math.Min(audio.Length, _loopStart + min), audio.Length);
         if (_playingHere) _player.SetLoop(Loop);
@@ -177,9 +178,11 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
         KeepInCloseView(marker == LoopMarker.Start ? _loopStart : _loopEnd);
     }
 
-    // ---- "Suggest a loop end" ----
+    // ---- "Suggest a loop" ----
 
-    private IReadOnlyList<LoopSuggestion>? _suggestions;
+    private IReadOnlyList<LoopPairSuggestion>? _pairs;      // whole-loop suggestions (start + end), found once per song
+    private int _pairIndex = -1;
+    private IReadOnlyList<LoopSuggestion>? _suggestions;    // end-only suggestions for a start the user picked
     private int _suggestionsFor = -1, _suggestionIndex = -1;
 
     [ObservableProperty] private bool _isSuggesting;
@@ -188,43 +191,76 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
     private bool CanSuggest => HasAudio && !IsSuggesting;
 
     /// <summary>
-    /// Finds where the music after the loop start comes around again and moves the loop end there. Pressing it again
-    /// goes to the next suggestion. Nothing is saved; it only moves the marker.
+    /// If the loop start is still at the beginning (or where the last suggestion put it), suggests a whole loop: where
+    /// the part that plays twice begins, and one time through later. If the user placed the start, keeps it and suggests
+    /// only the end. Pressing again goes to the next suggestion. Only moves the markers; nothing is saved.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanSuggest))]
-    private async Task SuggestEnd()
+    private async Task Suggest()
     {
         if (Audio is not { } a) return;
+        bool startIsOurs = _loopStart == 0 || (_pairs is { } ls && _pairIndex >= 0 && ls[_pairIndex].Start == _loopStart);
+        if (startIsOurs) await SuggestWholeLoop(a);
+        else await SuggestEndOnly(a);
+    }
+
+    private async Task SuggestWholeLoop(PcmAudio a)
+    {
+        _pairs ??= await Busy(() => LoopFinder.SuggestLoops(a));
+        if (_pairs.Count == 0)
+        {
+            SuggestionText = "Couldn't find a part of this song that plays twice, so there's nothing to match. The file probably " +
+                             "already ends where it should loop: try \"Test the loop\" as it is, or set the loop start yourself.";
+            return;
+        }
+        _pairIndex = (_pairIndex + 1) % _pairs.Count;
+        var s = _pairs[_pairIndex];
+        Loops = true;
+        _loopEnd = a.Length; // so the new start isn't limited by the old end
+        MoveMarker(LoopMarker.Start, s.Start, snap: false);
+        MoveMarker(LoopMarker.End, s.End, snap: false); // lined up to the waveform, which beats a zero crossing here
+        ZoomAll();
+        SuggestionText = $"Suggestion {_pairIndex + 1} of {_pairs.Count}: the loop starts at {TimeText.Format(a.TimeOf(s.Start))} " +
+                         $"(the intro before it plays once) and is {TimeText.Format(a.TimeOf(s.End - s.Start))} long, {s.Match:P0} match. " +
+                         (_pairs.Count > 1 ? "Press again to try the next one. " : "") + "Use \"Test the loop\" to hear it.";
+    }
+
+    private async Task SuggestEndOnly(PcmAudio a)
+    {
         if (_suggestions is null || _suggestionsFor != _loopStart)
         {
-            IsSuggesting = true;
-            SuggestEndCommand.NotifyCanExecuteChanged();
-            SuggestionText = "Listening for where the music repeats…";
             int start = _loopStart;
-            try { _suggestions = await Task.Run(() => LoopFinder.SuggestEnds(a, start)); }
-            finally
-            {
-                IsSuggesting = false;
-                SuggestEndCommand.NotifyCanExecuteChanged();
-            }
+            _suggestions = await Busy(() => LoopFinder.SuggestEnds(a, start));
             _suggestionsFor = start;
             _suggestionIndex = -1;
         }
-
         if (_suggestions.Count == 0 || _suggestions[0].Match < LoopFinder.GoodMatch)
         {
-            SuggestionText = "Couldn't find a place where the music after the loop start plays again. The file may already end where it should loop, or the loop start may need moving.";
+            SuggestionText = "Kept your loop start, but couldn't find where the music after it plays again. The file may already end " +
+                             "where it should loop. (Move the loop start back to 0:00 to let the app look for a whole loop.)";
             return;
         }
         _suggestionIndex = (_suggestionIndex + 1) % _suggestions.Count;
         var s = _suggestions[_suggestionIndex];
         Loops = true;
-        MoveMarker(LoopMarker.End, s.End, snap: false); // already lined up to the waveform, which beats a zero crossing here
+        MoveMarker(LoopMarker.End, s.End, snap: false);
         ZoomAround(_loopEnd, 4.0 * a.SampleRate);
-        SuggestionText = $"Suggestion {_suggestionIndex + 1} of {_suggestions.Count}: {s.Match:P0} match. " +
+        SuggestionText = $"Kept your loop start. Suggested end {_suggestionIndex + 1} of {_suggestions.Count}: {s.Match:P0} match. " +
                          (_suggestions.Count > 1 ? "Press again to try the next one. " : "") + "Use \"Test the loop\" to hear it.";
     }
 
+    private async Task<T> Busy<T>(Func<T> work)
+    {
+        IsSuggesting = true;
+        SuggestCommand.NotifyCanExecuteChanged();
+        SuggestionText = "Listening for where the music repeats…";
+        try { return await Task.Run(work); }
+        finally
+        {
+            IsSuggesting = false;
+            SuggestCommand.NotifyCanExecuteChanged();
+        }
+    }
     /// <summary>Zooms to ~1 second around <paramref name="sample"/> unless the view is already that close and shows it.</summary>
     private void KeepInCloseView(int sample)
     {
@@ -425,7 +461,7 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
                  {
                      StartEarlierCommand, StartLaterCommand, EndEarlierCommand, EndLaterCommand, StartAtPlayheadCommand,
                      EndAtPlayheadCommand, ZoomAllCommand, ZoomToStartCommand, ZoomToEndCommand, PlayFromBeginningCommand,
-                     PlayFromLoopStartCommand, TestLoopCommand, TogglePlayCommand, SuggestEndCommand,
+                     PlayFromLoopStartCommand, TestLoopCommand, TogglePlayCommand, SuggestCommand,
                  })
             c.NotifyCanExecuteChanged();
     }
