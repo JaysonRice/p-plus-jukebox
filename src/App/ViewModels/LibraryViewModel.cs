@@ -24,6 +24,10 @@ public abstract class LibraryRow : ObservableObject
     public virtual string LengthText => "";
     public virtual string LoopText => "";
     public virtual string UsedByText => "";
+    /// <summary>How many builds use the song (the "Builds" column); empty for series header rows.</summary>
+    public virtual string BuildCountText => "";
+    /// <summary>Hover text for the build count: which builds.</summary>
+    public virtual string BuildsTooltip => "";
     public virtual string AddedText => "";
 }
 
@@ -79,6 +83,10 @@ public sealed partial class LibrarySongItem : LibraryRow
     public override string Series => Group.DisplayName;
     public override string AddedText => Added.ToString("d");
     public override string UsedByText => UsedBy.Count == 0 ? "Not used by any build" : "Used by " + string.Join(", ", UsedBy);
+    public override string BuildCountText => UsedBy.Count.ToString();
+    public override string BuildsTooltip => UsedBy.Count == 0
+        ? "Not used by any build"
+        : (UsedBy.Count == 1 ? "Used by 1 build:" : $"Used by {UsedBy.Count} builds:") + string.Concat(UsedBy.Select(b => "\n• " + b));
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LengthText), nameof(LoopText))]
@@ -174,7 +182,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         new("Longest first", (a, b) => Nullable.Compare(b.Length, a.Length)),
         new("Shortest first", (a, b) => CompareShortest(a.Length, b.Length)),
         new("Recently added", (a, b) => b.Added.CompareTo(a.Added)),
-        new("Used by the most builds", (a, b) => b.UsedBy.Count.CompareTo(a.UsedBy.Count)),
+        new("Build count (most first)",(a, b) => b.UsedBy.Count.CompareTo(a.UsedBy.Count)),
     ];
 
     private static int CompareShortest(TimeSpan? a, TimeSpan? b) =>

@@ -49,7 +49,8 @@
         </Border>
 
         <!-- Bottom: where the library is, and what's playing -->
-        <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
+        <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}"
+                Visibility="{Binding ShowFooter, Converter={StaticResource BoolToVis}}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
                             Visibility="{Binding Player.NowPlaying, Converter={StaticResource NotNullToVis}}">
@@ -71,8 +72,7 @@
                     <Button Content="Stop" Command="{Binding StopPlaybackCommand}" Padding="10,2" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding LibraryNotice}" VerticalAlignment="Center" Style="{StaticResource Hint}" Margin="0,0,8,0" />
-                    <Button Content="Show in Explorer" Command="{Binding ShowLibraryInExplorerCommand}" Padding="8,2" />
+                    <TextBlock Text="{Binding LibraryNotice}" VerticalAlignment="Center" Style="{StaticResource Hint}" />
                 </StackPanel>
             </DockPanel>
         </Border>

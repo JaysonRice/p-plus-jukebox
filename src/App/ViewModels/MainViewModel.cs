@@ -19,9 +19,14 @@ public sealed partial class MainViewModel : ObservableObject
     public MainViewModel(AppLibrary library, bool libraryInFallbackLocation)
     {
         Library = library;
+        // Only worth a line on screen when the library isn't where people would expect it (next to the app).
         LibraryNotice = libraryInFallbackLocation
             ? $"Your songs are kept in {library.Root} (the app's own folder can't be written to)."
-            : $"Your songs are kept in {library.Root}";
+            : "";
+        Player.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PreviewPlayer.NowPlaying)) OnPropertyChanged(nameof(ShowFooter));
+        };
         StagesView = CollectionViewSource.GetDefaultView(Stages);
         StagesView.Filter = o => o is StageCardViewModel s &&
             (string.IsNullOrWhiteSpace(SearchText) || s.DisplayName.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -31,6 +36,8 @@ public sealed partial class MainViewModel : ObservableObject
     public AppLibrary Library { get; }
     public PreviewPlayer Player { get; } = new();
     public string LibraryNotice { get; }
+    /// <summary>The bottom bar is only there when it has something to say: a library location warning, or what's playing.</summary>
+    public bool ShowFooter => LibraryNotice.Length > 0 || Player.NowPlaying is not null;
     private static Window? Owner => Application.Current?.MainWindow;
 
     public ObservableCollection<Build> Builds { get; } = [];
@@ -239,9 +246,6 @@ public sealed partial class MainViewModel : ObservableObject
         if (value == LibraryTabIndex) LibraryTab.Reload();   // builds or Loop Maker may have changed it since it was last shown
         else if (value == StagesTabIndex) Editor?.AfterRowEdit(); // a song may have been deleted there; re-check the stage
     }
-
-    [RelayCommand]
-    private void ShowLibraryInExplorer() => Dialogs.ShowInExplorer(Library.Root);
 
     [RelayCommand]
     private void StopPlayback() => Player.Stop();

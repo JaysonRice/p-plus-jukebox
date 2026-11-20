@@ -116,7 +116,16 @@
                 <DataGridTextColumn x:Name="SeriesColumn" Header="Series" Binding="{Binding Series}" Width="1.5*" />
                 <DataGridTextColumn Header="Length" Binding="{Binding LengthText}" Width="70" />
                 <DataGridTextColumn Header="Loop" Binding="{Binding LoopText}" Width="85" />
-                <DataGridTextColumn Header="Used by" Binding="{Binding UsedByText}" Width="2*" />
+                <!-- How many builds use the song; hover to see which -->
+                <DataGridTextColumn Header="Build count" Binding="{Binding BuildCountText}" Width="100">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextAlignment" Value="Center" />
+                            <Setter Property="ToolTip" Value="{Binding BuildsTooltip}" />
+                            <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Added" Binding="{Binding AddedText}" Width="95" />
             </DataGrid.Columns>
         </DataGrid>
