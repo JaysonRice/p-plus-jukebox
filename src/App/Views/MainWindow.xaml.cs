@@ -22,13 +22,18 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (!_vm.ConfirmLeaveStage()) e.Cancel = true;
+        if (!_vm.ConfirmLeaveStage() || !_vm.LoopMaker.ConfirmDiscard()) e.Cancel = true;
     }
 
     /// <summary>Space = play/stop, Page Up/Down = previous/next song. Not while typing.</summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (_vm.Editor is not { } editor) return;
+        if (_vm.SelectedTab == MainViewModel.LoopMakerTabIndex)
+        {
+            if (e.Key == Key.Space && LoopEditorView.SpaceMeansPlay && _vm.LoopMaker.Editor is { } loop) { loop.TogglePlay(); e.Handled = true; }
+            return;
+        }
+        if (_vm.SelectedTab != MainViewModel.StagesTabIndex || _vm.Editor is not { } editor) return;
         if (Keyboard.FocusedElement is TextBoxBase or ComboBox or ComboBoxItem or Slider or ButtonBase) return;
         switch (e.Key)
         {

@@ -123,9 +123,10 @@ public class AudioTests(ITestOutputHelper output)
     public void Encode_ReportsProgress()
     {
         var reports = new List<double>();
-        BrstmFile.Encode(Signal(32000, 2), null, progress: new SyncProgress(reports.Add));
+        BrstmFile.Encode(Signal(32000, 20), null, progress: new SyncProgress(v => { lock (reports) reports.Add(v); }));
         Assert.NotEmpty(reports);
-        Assert.Equal(1.0, reports[^1], 2);
+        Assert.Equal(1.0, reports.Max(), 2);
+        Assert.InRange(reports.Count, 1, 101); // whole percents only, so the UI isn't flooded
     }
 
     [Fact]

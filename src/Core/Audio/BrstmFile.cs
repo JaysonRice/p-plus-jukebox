@@ -103,7 +103,7 @@ public static class BrstmFile
         options ??= new BrstmEncodeOptions();
         loop?.Validate(audio.Length);
 
-        int rate = options.MaxSampleRate is int max && audio.SampleRate > max ? max : audio.SampleRate;
+        int rate = OutputRate(audio.SampleRate, options);
         var working = AudioOps.Resample(audio, rate);
         if (options.NormalizePeak) working = AudioOps.NormalizePeak(working);
         var scaledLoop = loop?.Rescale(audio.SampleRate, rate, working.Length);
@@ -122,6 +122,33 @@ public static class BrstmFile
 
         var info = ReadInfo(bytes);
         return new BrstmEncodeResult(bytes, info.SampleRate, info.ChannelCount, info.SampleCount, info.Loop);
+    }
+
+    /// <summary>The sample rate <see cref="Encode"/> will use for audio at <paramref name="sourceRate"/>.</summary>
+    public static int OutputRate(int sourceRate, BrstmEncodeOptions? options = null)
+    {
+        options ??= new BrstmEncodeOptions();
+        return options.MaxSampleRate is int max && sourceRate > max ? max : sourceRate;
+    }
+
+    /// <summary>
+    /// About how big <see cref="Encode"/>'s file will be, without encoding (for the loop editor's size readout).
+    /// DSP-ADPCM is 8 bytes per 14 samples per channel; the file also stores a small seek table (4 bytes per channel
+    /// per block) and headers. With a loop, audio after the end is dropped and the start is moved to the next block.
+    /// </summary>
+    public static long EstimateSize(PcmAudio audio, LoopPoints? loop, BrstmEncodeOptions? options = null)
+    {
+        int rate = OutputRate(audio.SampleRate, options);
+        long length = (long)Math.Round((double)audio.Length * rate / audio.SampleRate);
+        long samples = length;
+        if (loop is { } l)
+        {
+            var scaled = l.Rescale(audio.SampleRate, rate, (int)length);
+            samples = scaled.End + (BlockSamples - scaled.Start % BlockSamples) % BlockSamples;
+        }
+        long blocks = (samples + BlockSamples - 1) / BlockSamples;
+        long audioBytes = (samples + 13) / 14 * 8;
+        return 0x300 + audio.ChannelCount * (audioBytes + blocks * 4 + 32);
     }
 
     private static LoopPoints? LoopOf(IAudioFormat format) =>
@@ -155,12 +182,25 @@ public static class BrstmFile
         return copy;
     }
 
-    private sealed class ProgressAdapter(IProgress<double> target) : VGAudio.IProgressReport
+    /// <summary>
+    /// VGAudio reports progress per tiny chunk (tens of thousands of times per song), possibly from several threads.
+    /// Passing each one on would flood the UI thread with updates (a Progress&lt;T&gt; posts every report to it), so only
+    /// whole-percent changes are forwarded.
+    /// </summary>
+    internal sealed class ProgressAdapter(IProgress<double> target) : VGAudio.IProgressReport
     {
-        private int _total = 1, _done;
+        private int _total = 1, _done, _lastPercent = -1;
         public void SetTotal(int value) => _total = Math.Max(1, value);
-        public void Report(int value) { _done = value; target.Report(Math.Clamp((double)_done / _total, 0, 1)); }
-        public void ReportAdd(int value) => Report(_done + value);
+        public void Report(int value) { Volatile.Write(ref _done, value); Forward(value); }
+        public void ReportAdd(int value) => Forward(Interlocked.Add(ref _done, value));
         public void LogMessage(string message) { }
+
+        private void Forward(int done)
+        {
+            int percent = (int)Math.Clamp(100L * done / _total, 0, 100);
+            int last = Volatile.Read(ref _lastPercent);
+            if (percent > last && Interlocked.CompareExchange(ref _lastPercent, percent, last) == last)
+                target.Report(percent / 100.0);
+        }
     }
 }

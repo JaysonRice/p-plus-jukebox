@@ -76,4 +76,14 @@ public static class SongFileNames
             if (!taken.Contains(path) && !exists(path)) return path;
         }
     }
+
+    /// <summary>A starting title from a downloaded file's name: "02_green_hill_zone" becomes "green hill zone".</summary>
+    public static string TitleFromFileName(string path)
+    {
+        string name = Path.GetFileNameWithoutExtension(path).Replace('_', ' ');
+        // Drop a leading track number like "02 ", "02 - " or "02. "
+        name = System.Text.RegularExpressions.Regex.Replace(name, @"^\s*\d{1,3}\s*[-.)]?\s+(?=\S)", "");
+        name = System.Text.RegularExpressions.Regex.Replace(name, @"\s+", " ").Trim();
+        return name.Length > 0 ? name : Path.GetFileNameWithoutExtension(path);
+    }
 }

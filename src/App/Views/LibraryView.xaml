@@ -1,6 +1,7 @@
-<UserControl x:Class="PPlusTracklistEditor.App.Views.LibraryView"
+﻿<UserControl x:Class="PPlusTracklistEditor.App.Views.LibraryView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:PPlusTracklistEditor.App.Views">
     <DockPanel>
         <!-- Find: search, which builds use it, sort, grouping -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
@@ -24,11 +25,50 @@
             </WrapPanel>
         </DockPanel>
 
+        <!-- Player strip: a simple timeline of the selected song (loop shown, not editable); click or drag it to skip around -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="10,8" CornerRadius="6" BorderThickness="1" BorderBrush="#40808080"
+                DataContext="{Binding Preview}">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                Visibility="{Binding HasLoop, Converter={StaticResource BoolToVis}}">
+                        <Rectangle Width="12" Height="8" Fill="#702F80ED" Margin="0,0,4,0" />
+                        <TextBlock Text="Intro" Style="{StaticResource Hint}" Margin="0,0,12,0" />
+                        <Rectangle Width="12" Height="8" Fill="#2F80ED" Margin="0,0,4,0" />
+                        <TextBlock Text="Loop" Style="{StaticResource Hint}" Margin="0,0,12,0" />
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding HasUnplayedEnd, Converter={StaticResource BoolToVis}}">
+                            <Rectangle Width="12" Height="8" Fill="#60808080" Margin="0,0,4,0" />
+                            <TextBlock Text="Never plays" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold" />
+                        <Run Text="   " />
+                        <Run Text="{Binding LoopText, Mode=OneWay}" />
+                    </TextBlock>
+                </DockPanel>
+                <Button DockPanel.Dock="Left" Content="{Binding PlayPauseText}" Command="{Binding TogglePlayCommand}" Width="96" VerticalAlignment="Center"
+                        FontWeight="SemiBold" ToolTip="Play or pause (Space)" AutomationProperties.Name="Play or pause song" />
+                <TextBlock DockPanel.Dock="Right" Text="{Binding TimeText}" FontFamily="Consolas" VerticalAlignment="Center" MinWidth="150" TextAlignment="Right" />
+                <Grid Height="32" Margin="12,0">
+                    <views:SongTimeline x:Name="Timeline" Length="{Binding Length}" HasLoop="{Binding HasLoop}"
+                                        LoopStart="{Binding LoopStart, Mode=OneWay}" LoopEnd="{Binding LoopEnd, Mode=OneWay}"
+                                        Playhead="{Binding Playhead}" AutomationProperties.Name="Song timeline"
+                                        Visibility="{Binding HasSong, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Text="Pick a song in the list to see and hear it here." Style="{StaticResource Hint}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding HasSong, Converter={StaticResource InverseBoolToVis}}" />
+                    <TextBlock Text="Loading…" Style="{StaticResource Hint}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Text="{Binding Error}" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding Error, Converter={StaticResource NotNullToVis}}" />
+                </Grid>
+            </DockPanel>
+        </Border>
+
         <!-- Actions on the selected song -->
         <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
             <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Hint}" VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal">
-                <Button Content="Play / Stop" Command="{Binding PlayCommand}" Style="{StaticResource ToolButton}" ToolTip="Space" />
                 <Button Content="Delete song…" Command="{Binding DeleteCommand}" Style="{StaticResource ToolButton}"
                         Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
                         ToolTip="Only songs no build uses can be deleted" />

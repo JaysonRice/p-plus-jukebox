@@ -120,6 +120,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     {
         _library = library;
         Player = player;
+        Preview = new SongPreviewViewModel(player);
         PickForStage = pickForStage;
         RowsView = (ListCollectionView)CollectionViewSource.GetDefaultView(Rows);
         RowsView.Filter = o => o is LibraryRow r && Shows(r);
@@ -129,6 +130,8 @@ public sealed partial class LibraryViewModel : ObservableObject
     }
 
     public PreviewPlayer Player { get; }
+    /// <summary>The player strip above the list (the selected song's timeline).</summary>
+    public SongPreviewViewModel Preview { get; }
     public string? PickForStage { get; }
     public bool IsPicking => PickForStage is not null;
     public string Heading => IsPicking ? $"Add songs to {PickForStage}" : "Your song library";
@@ -324,18 +327,16 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private LibrarySongItem? SelectedSong => Selected as LibrarySongItem;
 
+    partial void OnSelectedChanged(LibraryRow? value) =>
+        _ = Preview.ShowAsync((value as LibrarySongItem)?.FilePath, (value as LibrarySongItem)?.Name);
+
     public string SelectedDetails => SelectedSong is not { } s ? "" :
         $"{s.Name} ({s.Series}). {(s.Info is { } i ? $"{s.LengthText}, {(i.ChannelCount == 1 ? "mono" : "stereo")}, {s.LoopText.ToLowerInvariant()}. " : "")}{s.UsedByText}.";
 
     private bool HasSong => SelectedSong is not null;
 
     [RelayCommand(CanExecute = nameof(HasSong))]
-    private async Task Play()
-    {
-        if (SelectedSong is not { } row) return;
-        if (Player.IsPlaying && string.Equals(Player.CurrentFile, row.FilePath, StringComparison.OrdinalIgnoreCase)) { Player.Stop(); return; }
-        await Player.PlayAsync(row.FilePath, row.Name, StageEditSession.DefaultVolume);
-    }
+    private void Play() => Preview.TogglePlay(); // Space / double-click: play or pause in the player strip
 
     [RelayCommand(CanExecute = nameof(HasSong))]
     private void Delete()
