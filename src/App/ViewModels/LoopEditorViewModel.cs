@@ -54,6 +54,7 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
             _loopStart = loop.Start;
             _loopEnd = loop.End;
             Waveform = wave;
+            Playhead = 0;
             RefreshLoop();
             RefreshSize();
             OnPropertyChanged(nameof(SourceRateText));
@@ -146,26 +147,58 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanEditLoop))] private void EndEarlier() => Step(LoopMarker.End, -1);
     [RelayCommand(CanExecute = nameof(CanEditLoop))] private void EndLater() => Step(LoopMarker.End, +1);
 
-    /// <summary>The fine-tune arrows: to the next zero crossing with snapping on, else by 1 millisecond.</summary>
+    private DateTime _lastStepAt;
+    private (LoopMarker, int) _lastStepKey;
+    private int _stepRepeat;
+
+    /// <summary>
+    /// The fine-tune arrows (hold to repeat). A click moves to the next zero crossing with snapping on, else by 1 ms.
+    /// Holding speeds up gradually (up to ~25 ms per step), so small fixes stay precise but longer moves don't take forever.
+    /// Also zooms in on the marker so the change is visible.
+    /// </summary>
     private void Step(LoopMarker marker, int direction)
     {
         if (Audio is not { } a) return;
+        var now = DateTime.UtcNow;
+        bool held = _lastStepKey == (marker, direction) && (now - _lastStepAt).TotalMilliseconds < 250;
+        _stepRepeat = held ? _stepRepeat + 1 : 0;
+        _lastStepAt = now;
+        _lastStepKey = (marker, direction);
+
+        double extraMs = _stepRepeat < 6 ? 0 : Math.Min(25, (_stepRepeat - 5) * 1.0);
         int from = marker == LoopMarker.Start ? _loopStart : _loopEnd;
-        int to = SnapToZero ? LoopTools.StepToZeroCrossing(a, from, direction) : from + direction * Math.Max(1, a.SampleRate / 1000);
+        int target = from + direction * (int)(extraMs * a.SampleRate / 1000);
+        int to = SnapToZero ? LoopTools.StepToZeroCrossing(a, target, direction) : target + direction * Math.Max(1, a.SampleRate / 1000);
         MoveMarker(marker, to, snap: false);
+        KeepInCloseView(marker == LoopMarker.Start ? _loopStart : _loopEnd);
     }
 
-    /// <summary>"Set to now": put the marker where the music is playing (minus a little for reaction time).</summary>
-    [RelayCommand(CanExecute = nameof(IsPlayingHere))] private void StartAtPlayhead() => MarkAtPlayhead(LoopMarker.Start);
-    [RelayCommand(CanExecute = nameof(IsPlayingHere))] private void EndAtPlayhead() => MarkAtPlayhead(LoopMarker.End);
+    /// <summary>Zooms to ~1 second around <paramref name="sample"/> unless the view is already that close and shows it.</summary>
+    private void KeepInCloseView(int sample)
+    {
+        if (Audio is not { } a) return;
+        double close = 1.0 * a.SampleRate;
+        double margin = ViewLength * 0.1;
+        bool visible = sample >= ViewStart + margin && sample <= ViewStart + ViewLength - margin;
+        if (ViewLength > close * 2 || !visible) ZoomAround(sample, close);
+    }
+
+    /// <summary>
+    /// "Set to blue line": put the marker at the playback position. While playing, a little is taken off for the time it
+    /// takes to react and press; while paused it's exactly where the line is.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasAudio))] private void StartAtPlayhead() => MarkAtPlayhead(LoopMarker.Start);
+    [RelayCommand(CanExecute = nameof(HasAudio))] private void EndAtPlayhead() => MarkAtPlayhead(LoopMarker.End);
 
     private void MarkAtPlayhead(LoopMarker marker)
     {
-        if (Audio is not { } a || _player.PositionSamples < 0) return;
+        if (Audio is not { } a) return;
         Loops = true; // marking a loop point means they want a loop
+        int position = _playingHere ? _player.PositionSamples : Playhead;
+        if (position < 0) return;
         // ~150 ms of output buffer plus a typical reaction time: people press a little after the moment they mean.
-        int lag = (int)(0.25 * a.SampleRate);
-        MoveMarker(marker, _player.PositionSamples - lag);
+        if (_playingHere) position -= (int)(0.25 * a.SampleRate);
+        MoveMarker(marker, position);
     }
 
     // ---- view (zoom) ----
@@ -181,21 +214,21 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
         ViewLength = a.Length;
     }
 
-    [RelayCommand(CanExecute = nameof(HasAudio))] private void ZoomToStart() => ZoomAround(_loopStart);
-    [RelayCommand(CanExecute = nameof(HasAudio))] private void ZoomToEnd() => ZoomAround(_loopEnd);
+    [RelayCommand(CanExecute = nameof(HasAudio))] private void ZoomToStart() => ZoomAround(_loopStart, 4.0 * (Audio?.SampleRate ?? 0));
+    [RelayCommand(CanExecute = nameof(HasAudio))] private void ZoomToEnd() => ZoomAround(_loopEnd, 4.0 * (Audio?.SampleRate ?? 0));
 
-    /// <summary>Shows 4 seconds around a marker.</summary>
-    private void ZoomAround(int sample)
+    /// <summary>Shows <paramref name="samples"/> of audio centered on <paramref name="sample"/>.</summary>
+    private void ZoomAround(int sample, double samples)
     {
         if (Audio is not { } a) return;
-        double length = Math.Min(a.Length, 4.0 * a.SampleRate);
+        double length = Math.Clamp(samples, 200, a.Length);
         ViewLength = length;
         ViewStart = Math.Clamp(sample - length / 2, 0, a.Length - length);
     }
 
     // ---- playback ----
 
-    [ObservableProperty] private int _playhead = -1;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlayheadText))] private int _playhead = -1;
     public bool IsPlayingHere => _playingHere;
     public string PlayheadText => Audio is { } a && Playhead >= 0 ? TimeText.Format(a.TimeOf(Playhead)) : "";
 
@@ -213,26 +246,28 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
         PlayFrom(LoopTools.TestStart(new LoopPoints(_loopStart, _loopEnd), a.SampleRate));
     }
 
-    [RelayCommand(CanExecute = nameof(IsPlayingHere))]
-    private void Stop() => _player.Stop();
+    public string PlayPauseText => _playingHere ? "❚❚ Pause" : "▶ Play";
 
-    /// <summary>Space bar: stop, or play from the beginning.</summary>
+    /// <summary>Play button / Space bar: pause (the blue line stays where it stopped), or play on from the blue line.</summary>
+    [RelayCommand(CanExecute = nameof(HasAudio))]
     public void TogglePlay()
     {
-        if (_playingHere) _player.Stop();
-        else if (HasAudio) PlayFrom(Playhead >= 0 ? Playhead : 0);
+        if (_playingHere) { Playhead = Math.Max(0, _player.PositionSamples); _player.Stop(); }
+        else if (HasAudio) PlayFrom(Math.Max(0, Playhead));
     }
 
-    /// <summary>Clicking the waveform jumps there (and starts playing if nothing is).</summary>
+    /// <summary>Clicking the waveform: jumps there while playing, or just moves the blue line while paused.</summary>
     public void SeekTo(int sample)
     {
         if (_playingHere) _player.Seek(sample);
-        else PlayFrom(sample);
+        else Playhead = sample;
+        OnPropertyChanged(nameof(PlayheadText));
     }
 
     private void PlayFrom(int sample)
     {
         if (Audio is not { } a) return;
+        if (sample >= a.Length - 1) sample = 0; // finished last time: start over
         // Starting past the loop end would play to the end of the song first; the game never gets there.
         if (Loop is { } l && sample >= l.End) sample = l.Start;
         _player.PlayAudio(a, Loop, sample, Title);
@@ -327,12 +362,13 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
     private void NotifyCommands()
     {
         OnPropertyChanged(nameof(IsPlayingHere));
+        OnPropertyChanged(nameof(PlayPauseText));
         OnPropertyChanged(nameof(IsReady));
         foreach (var c in new IRelayCommand[]
                  {
                      StartEarlierCommand, StartLaterCommand, EndEarlierCommand, EndLaterCommand, StartAtPlayheadCommand,
                      EndAtPlayheadCommand, ZoomAllCommand, ZoomToStartCommand, ZoomToEndCommand, PlayFromBeginningCommand,
-                     PlayFromLoopStartCommand, TestLoopCommand, StopCommand,
+                     PlayFromLoopStartCommand, TestLoopCommand, TogglePlayCommand,
                  })
             c.NotifyCanExecuteChanged();
     }

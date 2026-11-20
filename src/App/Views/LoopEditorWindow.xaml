@@ -6,19 +6,25 @@
         xmlns:views="clr-namespace:PPlusTracklistEditor.App.Views"
         xmlns:vm="clr-namespace:PPlusTracklistEditor.App.ViewModels"
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:LoopEditorViewModel}"
-        Title="Make a looping song" Width="1040" Height="700" MinWidth="760" MinHeight="560"
+        Title="Make a looping song" Width="1040" Height="720" MinWidth="760" MinHeight="680"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Window.Resources>
         <Style x:Key="Small" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="8,2" />
             <Setter Property="MinWidth" Value="32" />
         </Style>
+        <Style x:Key="SmallRepeat" TargetType="RepeatButton" BasedOn="{StaticResource {x:Type RepeatButton}}">
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="MinWidth" Value="32" />
+            <Setter Property="Delay" Value="350" />
+            <Setter Property="Interval" Value="50" />
+        </Style>
     </Window.Resources>
     <Grid Margin="20,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="*" MinHeight="150" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -45,15 +51,23 @@
             </StackPanel>
         </Grid>
 
-        <DockPanel Grid.Row="1" Margin="0,0,0,6">
-            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Bottom"
-                       Text="Scroll to zoom · drag to move around · drag the flags to move the loop · click to play from there" />
-            <TextBlock VerticalAlignment="Bottom">
+        <!-- file info on the left, view (zoom) buttons on the right; wraps instead of cutting off when narrow -->
+        <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+            <TextBlock VerticalAlignment="Center" Margin="0,0,24,4">
                 <Run Text="{Binding FileName, Mode=OneWay}" FontWeight="SemiBold" />
                 <Run Text="  " />
                 <Run Text="{Binding DurationText, Mode=OneWay}" />
             </TextBlock>
-        </DockPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4" IsEnabled="{Binding IsReady}">
+                <TextBlock Text="View:" VerticalAlignment="Center" Margin="0,0,6,0" Style="{StaticResource Hint}" />
+                <Button Content="Whole song" Command="{Binding ZoomAllCommand}" Style="{StaticResource Small}" Margin="0,0,4,0"
+                        ToolTip="Zoom all the way out to see the whole song. (This only changes what you see.)" AutomationProperties.Name="View whole song" />
+                <Button Content="Loop start" Command="{Binding ZoomToStartCommand}" Style="{StaticResource Small}" Margin="0,0,4,0"
+                        ToolTip="Zoom in on the loop start. (This only changes what you see.)" AutomationProperties.Name="View loop start" />
+                <Button Content="Loop end" Command="{Binding ZoomToEndCommand}" Style="{StaticResource Small}"
+                        ToolTip="Zoom in on the loop end. (This only changes what you see.)" AutomationProperties.Name="View loop end" />
+            </StackPanel>
+        </WrapPanel>
 
         <!-- 2: the waveform -->
         <Border Grid.Row="2" BorderThickness="1" CornerRadius="4" BorderBrush="#40808080" MinHeight="160">
@@ -72,22 +86,23 @@
             </Grid>
         </Border>
 
-        <!-- 3: zoom + playback -->
-        <DockPanel Grid.Row="3" Margin="0,8,0,0" IsEnabled="{Binding IsReady}">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button Content="Whole song" Command="{Binding ZoomAllCommand}" Style="{StaticResource ToolButton}" />
-                <Button Content="Zoom to loop start" Command="{Binding ZoomToStartCommand}" Style="{StaticResource ToolButton}" />
-                <Button Content="Zoom to loop end" Command="{Binding ZoomToEndCommand}" Style="{StaticResource ToolButton}" Margin="0" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal">
-                <Button Content="▶ Play from the beginning" Command="{Binding PlayFromBeginningCommand}" Style="{StaticResource ToolButton}" />
-                <Button Content="▶ Play from loop start" Command="{Binding PlayFromLoopStartCommand}" Style="{StaticResource ToolButton}" />
-                <Button Content="⟲ Test the loop" Command="{Binding TestLoopCommand}" Style="{StaticResource ToolButton}" FontWeight="SemiBold"
+        <!-- 3: playback (wraps instead of cutting off when narrow) -->
+        <StackPanel Grid.Row="3" Margin="0,8,0,0">
+            <WrapPanel IsEnabled="{Binding IsReady}">
+                <Button Content="{Binding PlayPauseText}" Command="{Binding TogglePlayCommand}" Style="{StaticResource ToolButton}" MinWidth="90" Margin="0,0,6,4"
+                        FontWeight="SemiBold" ToolTip="Play from the blue line, or pause (Space bar)" AutomationProperties.Name="Play or pause" />
+                <Button Content="⏮ From the beginning" Command="{Binding PlayFromBeginningCommand}" Style="{StaticResource ToolButton}" Margin="0,0,6,4" />
+                <Button Content="From loop start" Command="{Binding PlayFromLoopStartCommand}" Style="{StaticResource ToolButton}" Margin="0,0,6,4" />
+                <Button Content="⟲ Test the loop" Command="{Binding TestLoopCommand}" Style="{StaticResource ToolButton}" Margin="0,0,12,4"
                         ToolTip="Plays the last few seconds before the loop end, so you can hear whether the jump back sounds smooth." />
-                <Button Content="■ Stop" Command="{Binding StopCommand}" Style="{StaticResource ToolButton}" />
-                <TextBlock Text="{Binding PlayheadText}" VerticalAlignment="Center" FontFamily="Consolas" Margin="6,0,0,0" />
-            </StackPanel>
-        </DockPanel>
+                <TextBlock VerticalAlignment="Center" Margin="0,0,0,4">
+                    <Run Text="Blue line at" />
+                    <Run Text="{Binding PlayheadText, Mode=OneWay}" FontFamily="Consolas" />
+                </TextBlock>
+            </WrapPanel>
+            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                       Text="Click the waveform to move the blue line · drag the flags to move the loop · scroll to zoom · drag to move around" />
+        </StackPanel>
 
         <!-- 4: the loop -->
         <Border Grid.Row="4" Margin="0,12,0,0" Padding="12,10" CornerRadius="4" BorderThickness="1" BorderBrush="#40808080" IsEnabled="{Binding IsReady}">
@@ -102,23 +117,23 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,32,4">
                         <Rectangle Width="10" Height="10" Fill="#2EA043" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="Loop start" VerticalAlignment="Center" Width="68" />
-                        <Button Content="◀" Command="{Binding StartEarlierCommand}" Style="{StaticResource Small}" ToolTip="A little earlier" AutomationProperties.Name="Loop start earlier" />
+                        <RepeatButton Content="◀" Command="{Binding StartEarlierCommand}" Style="{StaticResource SmallRepeat}" ToolTip="A little earlier (hold to keep moving)" AutomationProperties.Name="Loop start earlier" />
                         <TextBox Text="{Binding LoopStartText, UpdateSourceTrigger=LostFocus}" Width="92" Margin="4,0" FontFamily="Consolas"
                                  VerticalContentAlignment="Center" PreviewKeyDown="TimeBox_KeyDown" AutomationProperties.Name="Loop start time" />
-                        <Button Content="▶" Command="{Binding StartLaterCommand}" Style="{StaticResource Small}" ToolTip="A little later" AutomationProperties.Name="Loop start later" />
-                        <Button Content="Set to now" Command="{Binding StartAtPlayheadCommand}" Style="{StaticResource Small}" Margin="6,0,0,0"
-                                ToolTip="While the song plays, press this at the moment the loop should start." AutomationProperties.Name="Set loop start to now" />
+                        <RepeatButton Content="▶" Command="{Binding StartLaterCommand}" Style="{StaticResource SmallRepeat}" ToolTip="A little later (hold to keep moving)" AutomationProperties.Name="Loop start later" />
+                        <Button Content="Set to blue line" Command="{Binding StartAtPlayheadCommand}" Style="{StaticResource Small}" Margin="6,0,0,0"
+                                ToolTip="Moves the loop start to the blue line. Pause where you want it, or press this while it plays." AutomationProperties.Name="Set loop start to blue line" />
                         <TextBlock Text="{Binding LoopStartDetail}" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="8,0,0,0" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,32,4">
                         <Rectangle Width="10" Height="10" Fill="#E0553D" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="Loop end" VerticalAlignment="Center" Width="68" />
-                        <Button Content="◀" Command="{Binding EndEarlierCommand}" Style="{StaticResource Small}" ToolTip="A little earlier" AutomationProperties.Name="Loop end earlier" />
+                        <RepeatButton Content="◀" Command="{Binding EndEarlierCommand}" Style="{StaticResource SmallRepeat}" ToolTip="A little earlier (hold to keep moving)" AutomationProperties.Name="Loop end earlier" />
                         <TextBox Text="{Binding LoopEndText, UpdateSourceTrigger=LostFocus}" Width="92" Margin="4,0" FontFamily="Consolas"
                                  VerticalContentAlignment="Center" PreviewKeyDown="TimeBox_KeyDown" AutomationProperties.Name="Loop end time" />
-                        <Button Content="▶" Command="{Binding EndLaterCommand}" Style="{StaticResource Small}" ToolTip="A little later" AutomationProperties.Name="Loop end later" />
-                        <Button Content="Set to now" Command="{Binding EndAtPlayheadCommand}" Style="{StaticResource Small}" Margin="6,0,0,0"
-                                ToolTip="While the song plays, press this at the moment the loop should jump back." AutomationProperties.Name="Set loop end to now" />
+                        <RepeatButton Content="▶" Command="{Binding EndLaterCommand}" Style="{StaticResource SmallRepeat}" ToolTip="A little later (hold to keep moving)" AutomationProperties.Name="Loop end later" />
+                        <Button Content="Set to blue line" Command="{Binding EndAtPlayheadCommand}" Style="{StaticResource Small}" Margin="6,0,0,0"
+                                ToolTip="Moves the loop end to the blue line. Pause where you want it, or press this while it plays." AutomationProperties.Name="Set loop end to blue line" />
                         <TextBlock Text="{Binding LoopEndDetail}" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="8,0,0,0" />
                     </StackPanel>
                     <TextBlock Text="{Binding LoopLengthText}" VerticalAlignment="Center" Margin="0,0,0,4" />
