@@ -118,6 +118,9 @@ public sealed partial class PreviewPlayer : ObservableObject, IDisposable
         CurrentFile = null;
     }
 
+    /// <summary>Decodes a BRSTM (in the background, using the same cache as playback) without playing it.</summary>
+    public Task<(PcmAudio Audio, LoopPoints? Loop)> LoadAsync(string brstmFile) => GetAsync(brstmFile);
+
     private async Task<(PcmAudio, LoopPoints?)> GetAsync(string file)
     {
         var hit = _cache.FirstOrDefault(c => string.Equals(c.File, file, StringComparison.OrdinalIgnoreCase));

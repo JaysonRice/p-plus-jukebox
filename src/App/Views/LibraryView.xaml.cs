@@ -12,6 +12,7 @@ public partial class LibraryView : UserControl
     public LibraryView()
     {
         InitializeComponent();
+        Timeline.SeekRequested += (_, sample) => Vm?.Preview.SeekTo(sample);
         DataContextChanged += (_, e) =>
         {
             SongGrid.SelectionMode = Vm?.IsPicking == true ? DataGridSelectionMode.Extended : DataGridSelectionMode.Single;

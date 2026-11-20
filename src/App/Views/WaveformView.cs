@@ -34,7 +34,9 @@ public sealed class WaveformView : FrameworkElement
     private static readonly Brush StartBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x2E, 0xA0, 0x43)));
     private static readonly Brush EndBrush = Frozen(new SolidColorBrush(Color.FromRgb(0xE0, 0x55, 0x3D)));
     private static readonly Brush PlayheadBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x2F, 0x80, 0xED)));
-    private static readonly Brush DimBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x55, 0x80, 0x80, 0x80)));
+    // Before the loop start: the intro, which plays once (light). After the loop end: never plays (dark).
+    private static readonly Brush IntroBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x26, 0x80, 0x80, 0x80)));
+    private static readonly Brush CutBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x80, 0x80, 0x80, 0x80)));
 
     private Geometry? _waveGeometry;
     private (WaveformData?, double, double, double, double) _waveKey;
@@ -62,6 +64,10 @@ public sealed class WaveformView : FrameworkElement
 
     public static readonly DependencyProperty LoopEndProperty = Dp(nameof(LoopEnd), 0);
     public int LoopEnd { get => (int)GetValue(LoopEndProperty); set => SetValue(LoopEndProperty, value); }
+
+    /// <summary>False in the song library: the loop is shown but its flags can't be dragged.</summary>
+    public static readonly DependencyProperty CanEditLoopProperty = Dp(nameof(CanEditLoop), true);
+    public bool CanEditLoop { get => (bool)GetValue(CanEditLoopProperty); set => SetValue(CanEditLoopProperty, value); }
 
     public static readonly DependencyProperty ShowLoopProperty = Dp(nameof(ShowLoop), true);
     public bool ShowLoop { get => (bool)GetValue(ShowLoopProperty); set => SetValue(ShowLoopProperty, value); }
@@ -144,8 +150,8 @@ public sealed class WaveformView : FrameworkElement
         if (ShowLoop)
         {
             double xs = XOf(LoopStart), xe = XOf(LoopEnd);
-            if (xs > 0) dc.DrawRectangle(DimBrush, null, new Rect(0, area.Top, Math.Min(w, xs), area.Height));
-            if (xe < w) dc.DrawRectangle(DimBrush, null, new Rect(Math.Max(0, xe), area.Top, w - Math.Max(0, xe), area.Height));
+            if (xs > 0) dc.DrawRectangle(IntroBrush, null, new Rect(0, area.Top, Math.Min(w, xs), area.Height));
+            if (xe < w) dc.DrawRectangle(CutBrush, null, new Rect(Math.Max(0, xe), area.Top, w - Math.Max(0, xe), area.Height));
             DrawMarker(dc, xs, StartBrush, "Loop start", alignRight: false, area);
             DrawMarker(dc, xe, EndBrush, "Loop end", alignRight: true, area);
         }
@@ -252,7 +258,7 @@ public sealed class WaveformView : FrameworkElement
 
     private LoopMarker? MarkerAt(Point p, bool flagsOnly = false)
     {
-        if (!ShowLoop || Waveform is null) return null;
+        if (!ShowLoop || !CanEditLoop || Waveform is null) return null;
         var area = WaveArea;
         double xs = XOf(LoopStart), xe = XOf(LoopEnd);
         if (HandleRect(xe, true, area).Contains(p)) return LoopMarker.End;
