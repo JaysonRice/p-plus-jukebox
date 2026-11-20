@@ -93,7 +93,7 @@ public sealed partial class StageEditorViewModel : ObservableObject
     [RelayCommand]
     private void AddFromLibrary()
     {
-        var window = new LibraryWindow(new LibraryViewModel(_main.Library, _main.Player, pickForStage: Session.DisplayName)) { Owner = Owner };
+        var window = new LibraryWindow(new LibraryViewModel(_main.Library, _main.Player, pickForStage: Session.DisplayName) { CurrentBuildName = Session.Build.Name }) { Owner = Owner };
         if (window.ShowDialog() != true) return;
         AddLibrarySongs(window.PickedSongs);
     }

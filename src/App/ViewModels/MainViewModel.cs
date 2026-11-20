@@ -72,6 +72,7 @@ public sealed partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(CanEditBuild));
             DeleteBuildCommand.NotifyCanExecuteChanged();
+            if (_libraryTab is not null) _libraryTab.CurrentBuildName = value.Name;
             LoadStages();
         }
     }
@@ -231,7 +232,12 @@ public sealed partial class MainViewModel : ObservableObject
 
     private LibraryViewModel? _libraryTab;
     /// <summary>The "Song library" tab (made on first use).</summary>
-    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null) { AddToStageRequested = AddSongToStage, ImportFilesRequested = ImportSongFiles };
+    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null)
+    {
+        AddToStageRequested = AddSongToStage,
+        ImportFilesRequested = ImportSongFiles,
+        CurrentBuildName = SelectedBuild?.Name,
+    };
 
     /// <summary>
     /// BRSTM files (or folders of them) picked or dropped on the Song library: ask about titles and series, then copy them

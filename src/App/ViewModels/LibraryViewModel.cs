@@ -111,7 +111,8 @@ public sealed partial class LibrarySongItem : LibraryRow
 /// </summary>
 public sealed partial class LibraryViewModel : ObservableObject
 {
-    public sealed record Option(string Label, Func<LibrarySongItem, bool> Matches)
+    /// <param name="Key">Stays the same when the label changes (it names the current build), so the choice survives switching builds.</param>
+    public sealed record Option(string Key, string Label, Func<LibrarySongItem, bool> Matches)
     {
         public override string ToString() => Label;
     }
@@ -172,6 +173,39 @@ public sealed partial class LibraryViewModel : ObservableObject
     [ObservableProperty] private Option? _usage;
     partial void OnUsageChanged(Option? value) => RefreshView();
 
+    private string? _currentBuildName;
+    /// <summary>
+    /// The build being worked on. The "Show" choices are about this build only ("Not in &lt;build&gt;"), however many builds
+    /// there are. Set by the main window when the build changes.
+    /// </summary>
+    public string? CurrentBuildName
+    {
+        get => _currentBuildName;
+        set
+        {
+            if (_currentBuildName == value) return;
+            _currentBuildName = value;
+            BuildUsageOptions();
+            RefreshView();
+        }
+    }
+
+    /// <summary>All songs / not in the current build / in the current build / not in any build. Keeps the chosen kind when the build changes.</summary>
+    private void BuildUsageOptions()
+    {
+        string? keep = Usage?.Key;
+        UsageOptions.Clear();
+        UsageOptions.Add(new Option("all", "All songs", _ => true));
+        if (CurrentBuildName is { } name)
+        {
+            UsageOptions.Add(new Option("notHere", $"Not in \"{name}\"", s => !s.UsedBy.Contains(name)));
+            UsageOptions.Add(new Option("here", $"In \"{name}\"", s => s.UsedBy.Contains(name)));
+        }
+        UsageOptions.Add(new Option("none", "Not in any build", s => s.UsedBy.Count == 0));
+        _usage = UsageOptions.FirstOrDefault(o => o.Key == keep) ?? UsageOptions[0];
+        OnPropertyChanged(nameof(Usage));
+    }
+
     /// <summary>Search + "Show" filter (not collapsing).</summary>
     private bool Matches(LibrarySongItem s)
     {
@@ -221,7 +255,8 @@ public sealed partial class LibraryViewModel : ObservableObject
         return true;
     }
 
-    [ObservableProperty] private bool _groupBySeries = true;
+    // Off by default: grouping sorts only within each series, which makes the sorts far less useful. Turn it on to browse by series.
+    [ObservableProperty] private bool _groupBySeries;
     partial void OnGroupBySeriesChanged(bool value) => RefreshView();
 
     /// <summary>When grouping: series name, then the header, then its songs in the chosen order.</summary>
@@ -319,19 +354,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         var usedGroups = _songs.Select(s => s.Group).Distinct();
         Rows.ReplaceAll(usedGroups.Cast<LibraryRow>().Concat(_songs));
 
-        // Filter choices follow the current builds.
-        string? keepUsage = Usage?.Label;
-        UsageOptions.Clear();
-        UsageOptions.Add(new Option("All songs", _ => true));
-        UsageOptions.Add(new Option("Not used by any build", s => s.UsedBy.Count == 0));
-        foreach (var build in builds)
-        {
-            string name = build.Name;
-            UsageOptions.Add(new Option($"Used by \"{name}\"", s => s.UsedBy.Contains(name)));
-            UsageOptions.Add(new Option($"Not used by \"{name}\"", s => !s.UsedBy.Contains(name)));
-        }
-        _usage = UsageOptions.FirstOrDefault(o => o.Label == keepUsage) ?? UsageOptions[0];
-        OnPropertyChanged(nameof(Usage));
+        BuildUsageOptions();
 
         RefreshView();
         Selected = _songs.FirstOrDefault(s => s.SongPath == keepSelected);
