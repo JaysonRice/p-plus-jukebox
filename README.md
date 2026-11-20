@@ -3,7 +3,7 @@
 Desktop app (WPF, .NET 10) for editing Project+ stage music: tracklists (`.tlst`) and songs (`.brstm`), including making looping BRSTMs from WAV/MP3.
 Built for people who aren't modders: no BrawlCrate, no hex.
 
-**Status:** steps 1–4 done: tracklist read/write, song library + builds (first-run import from your Project+ folder), Sync, and the audio core (WAV/MP3/BRSTM import, looping BRSTM encode, loop-aware preview stream). Step 5 (first usable UI) in progress: builds, stages, song editing with Undo, preview playback, song library, Sync.
+**Status:** steps 1–5 done: tracklist read/write, song library + builds (first-run import from your Project+ folder), Sync, the audio core (WAV/MP3/BRSTM import, looping BRSTM encode), and the first usable app (Stages tab editor with Undo, Song library tab, Sync window). Next: the loop editor for making songs from WAV/MP3.
 
 ## Build & test
 ```powershell
