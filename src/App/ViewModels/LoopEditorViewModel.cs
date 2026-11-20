@@ -101,7 +101,11 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
         int min = (int)(MinLoopSeconds * audio.SampleRate);
         sample = Math.Clamp(sample, 0, audio.Length);
         if (snap && SnapToZero) sample = LoopTools.SnapToZeroCrossing(audio, sample, LoopTools.SnapRadius(audio.SampleRate));
-        if (marker == LoopMarker.Start) _loopStart = Math.Clamp(sample, 0, Math.Max(0, _loopEnd - min));
+        if (marker == LoopMarker.Start)
+        {
+            _loopStart = Math.Clamp(sample, 0, Math.Max(0, _loopEnd - min));
+            if (_suggestionsFor != _loopStart) SuggestionText = null; // old suggestions were for the old start
+        }
         else _loopEnd = Math.Clamp(sample, Math.Min(audio.Length, _loopStart + min), audio.Length);
         if (_playingHere) _player.SetLoop(Loop);
         RefreshLoop();
@@ -171,6 +175,54 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
         int to = SnapToZero ? LoopTools.StepToZeroCrossing(a, target, direction) : target + direction * Math.Max(1, a.SampleRate / 1000);
         MoveMarker(marker, to, snap: false);
         KeepInCloseView(marker == LoopMarker.Start ? _loopStart : _loopEnd);
+    }
+
+    // ---- "Suggest a loop end" ----
+
+    private IReadOnlyList<LoopSuggestion>? _suggestions;
+    private int _suggestionsFor = -1, _suggestionIndex = -1;
+
+    [ObservableProperty] private bool _isSuggesting;
+    [ObservableProperty] private string? _suggestionText;
+
+    private bool CanSuggest => HasAudio && !IsSuggesting;
+
+    /// <summary>
+    /// Finds where the music after the loop start comes around again and moves the loop end there. Pressing it again
+    /// goes to the next suggestion. Nothing is saved; it only moves the marker.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanSuggest))]
+    private async Task SuggestEnd()
+    {
+        if (Audio is not { } a) return;
+        if (_suggestions is null || _suggestionsFor != _loopStart)
+        {
+            IsSuggesting = true;
+            SuggestEndCommand.NotifyCanExecuteChanged();
+            SuggestionText = "Listening for where the music repeats…";
+            int start = _loopStart;
+            try { _suggestions = await Task.Run(() => LoopFinder.SuggestEnds(a, start)); }
+            finally
+            {
+                IsSuggesting = false;
+                SuggestEndCommand.NotifyCanExecuteChanged();
+            }
+            _suggestionsFor = start;
+            _suggestionIndex = -1;
+        }
+
+        if (_suggestions.Count == 0 || _suggestions[0].Match < LoopFinder.GoodMatch)
+        {
+            SuggestionText = "Couldn't find a place where the music after the loop start plays again. The file may already end where it should loop, or the loop start may need moving.";
+            return;
+        }
+        _suggestionIndex = (_suggestionIndex + 1) % _suggestions.Count;
+        var s = _suggestions[_suggestionIndex];
+        Loops = true;
+        MoveMarker(LoopMarker.End, s.End, snap: false); // already lined up to the waveform, which beats a zero crossing here
+        ZoomAround(_loopEnd, 4.0 * a.SampleRate);
+        SuggestionText = $"Suggestion {_suggestionIndex + 1} of {_suggestions.Count}: {s.Match:P0} match. " +
+                         (_suggestions.Count > 1 ? "Press again to try the next one. " : "") + "Use \"Test the loop\" to hear it.";
     }
 
     /// <summary>Zooms to ~1 second around <paramref name="sample"/> unless the view is already that close and shows it.</summary>
@@ -373,7 +425,7 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
                  {
                      StartEarlierCommand, StartLaterCommand, EndEarlierCommand, EndLaterCommand, StartAtPlayheadCommand,
                      EndAtPlayheadCommand, ZoomAllCommand, ZoomToStartCommand, ZoomToEndCommand, PlayFromBeginningCommand,
-                     PlayFromLoopStartCommand, TestLoopCommand, TogglePlayCommand,
+                     PlayFromLoopStartCommand, TestLoopCommand, TogglePlayCommand, SuggestEndCommand,
                  })
             c.NotifyCanExecuteChanged();
     }
