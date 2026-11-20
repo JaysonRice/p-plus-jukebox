@@ -184,7 +184,8 @@ public sealed partial class MainViewModel : ObservableObject
     private void DeleteBuild()
     {
         if (SelectedBuild is not { IsDefault: false } build) return;
-        if (!Dialogs.Confirm(Owner, $"Delete the build \"{build.Name}\"?\n\nIts stage song lists are deleted. The songs themselves stay in your library.")) return;
+        if (!Dialogs.ConfirmDelete(Owner,
+            $"Delete the build \"{build.Name}\"?\n\nAll of this build's stage song lists will be deleted, including any unsaved changes. This can't be undone.\n\nYour songs are not deleted: they stay in your library.")) return;
         Editor = null; // its unsaved changes go with it
         Library.DeleteBuild(build);
         ReloadBuilds(Library.DefaultBuild.Id);
