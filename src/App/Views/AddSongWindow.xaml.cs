@@ -3,7 +3,10 @@ using PPlusTracklistEditor.App.Services;
 
 namespace PPlusTracklistEditor.App.Views;
 
-/// <summary>Asks for a new song's title and series. The file name is made from them automatically (safe and unique).</summary>
+/// <summary>
+/// Asks for a ready-made BRSTM's title and series. The file name is made from them automatically (safe and unique).
+/// "Change the loop…" closes this with <see cref="WantsLoopEditor"/> set, and the caller opens the loop editor instead.
+/// </summary>
 public partial class AddSongWindow : Window
 {
     private readonly string _file;
@@ -15,7 +18,7 @@ public partial class AddSongWindow : Window
         _file = file;
         _player = player;
         FileText.Text = $"File: {Path.GetFileName(file)}";
-        TitleBox.Text = Path.GetFileNameWithoutExtension(file);
+        TitleBox.Text = Core.Library.SongFileNames.TitleFromFileName(file);
         SeriesBox.ItemsSource = seriesFolders;
         Loaded += (_, _) => { TitleBox.Focus(); TitleBox.SelectAll(); };
         Closed += (_, _) => { if (string.Equals(_player.CurrentFile, _file, StringComparison.OrdinalIgnoreCase)) _player.Stop(); };
@@ -23,12 +26,19 @@ public partial class AddSongWindow : Window
 
     public string SongTitle => TitleBox.Text.Trim();
     public string Series => SeriesBox.Text.Trim();
+    public bool WantsLoopEditor { get; private set; }
 
     private async void Play_Click(object sender, RoutedEventArgs e)
     {
         if (string.Equals(_player.CurrentFile, _file, StringComparison.OrdinalIgnoreCase)) { _player.Stop(); return; }
         try { await _player.PlayAsync(_file, SongTitle, 80); }
         catch (Exception ex) { Dialogs.Error(this, ex.Message); }
+    }
+
+    private void EditLoop_Click(object sender, RoutedEventArgs e)
+    {
+        WantsLoopEditor = true;
+        DialogResult = false;
     }
 
     private void Add_Click(object sender, RoutedEventArgs e)

@@ -13,6 +13,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += OnUnhandled;
+        NewSongFiles.CleanUpOld();
 
         string root = AppLibrary.DefaultRoot(out bool usedFallback);
         if (!AppLibrary.Exists(root))
