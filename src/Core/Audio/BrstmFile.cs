@@ -182,12 +182,25 @@ public static class BrstmFile
         return copy;
     }
 
-    private sealed class ProgressAdapter(IProgress<double> target) : VGAudio.IProgressReport
+    /// <summary>
+    /// VGAudio reports progress per tiny chunk (tens of thousands of times per song), possibly from several threads.
+    /// Passing each one on would flood the UI thread with updates (a Progress&lt;T&gt; posts every report to it), so only
+    /// whole-percent changes are forwarded.
+    /// </summary>
+    internal sealed class ProgressAdapter(IProgress<double> target) : VGAudio.IProgressReport
     {
-        private int _total = 1, _done;
+        private int _total = 1, _done, _lastPercent = -1;
         public void SetTotal(int value) => _total = Math.Max(1, value);
-        public void Report(int value) { _done = value; target.Report(Math.Clamp((double)_done / _total, 0, 1)); }
-        public void ReportAdd(int value) => Report(_done + value);
+        public void Report(int value) { Volatile.Write(ref _done, value); Forward(value); }
+        public void ReportAdd(int value) => Forward(Interlocked.Add(ref _done, value));
         public void LogMessage(string message) { }
+
+        private void Forward(int done)
+        {
+            int percent = (int)Math.Clamp(100L * done / _total, 0, 100);
+            int last = Volatile.Read(ref _lastPercent);
+            if (percent > last && Interlocked.CompareExchange(ref _lastPercent, percent, last) == last)
+                target.Report(percent / 100.0);
+        }
     }
 }
