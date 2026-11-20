@@ -256,6 +256,11 @@ public sealed partial class LoopEditorViewModel : ObservableObject, IDisposable
         else if (HasAudio) PlayFrom(Math.Max(0, Playhead));
     }
 
+    public void Pause()
+    {
+        if (_playingHere) TogglePlay();
+    }
+
     /// <summary>Clicking the waveform: jumps there while playing, or just moves the blue line while paused.</summary>
     public void SeekTo(int sample)
     {

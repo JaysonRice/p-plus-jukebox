@@ -224,12 +224,19 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The "Song library" tab (made on first use).</summary>
     public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null);
 
+    private LoopMakerViewModel? _loopMaker;
+    /// <summary>The "Loop Maker" tab: make a looping song straight into the library.</summary>
+    public LoopMakerViewModel LoopMaker => _loopMaker ??= new LoopMakerViewModel(Library, Player, () => SelectedTab = LibraryTabIndex);
+
+    public const int StagesTabIndex = 0, LibraryTabIndex = 1, LoopMakerTabIndex = 2;
+
     [ObservableProperty] private int _selectedTab;
 
     partial void OnSelectedTabChanged(int value)
     {
-        if (value == 1) LibraryTab.Reload();   // builds may have changed since it was last shown
-        else Editor?.AfterRowEdit();           // a song may have been deleted there; re-check the stage
+        if (value != LoopMakerTabIndex) _loopMaker?.Pause();
+        if (value == LibraryTabIndex) LibraryTab.Reload();   // builds or Loop Maker may have changed it since it was last shown
+        else if (value == StagesTabIndex) Editor?.AfterRowEdit(); // a song may have been deleted there; re-check the stage
     }
 
     [RelayCommand]

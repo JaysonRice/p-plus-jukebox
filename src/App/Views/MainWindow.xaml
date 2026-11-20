@@ -265,6 +265,9 @@
           <TabItem Header="Song library">
             <views:LibraryView DataContext="{Binding LibraryTab}" Margin="4,12,4,8" />
           </TabItem>
+          <TabItem Header="Loop Maker">
+            <views:LoopMakerView DataContext="{Binding LoopMaker}" />
+          </TabItem>
         </TabControl>
     </DockPanel>
 </Window>
