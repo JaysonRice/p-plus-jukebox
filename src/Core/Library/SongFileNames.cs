@@ -56,10 +56,10 @@ public static class SongFileNames
     }
 
     /// <summary>
-    /// Picks a tracklist song path ("Series/Name") that isn't taken in <paramref name="folder"/>
-    /// or by <paramref name="alsoTaken"/> (songs queued but not yet copied). Adds " (2)", " (3)"… when needed.
+    /// Picks a tracklist song path ("Series/Name") for which <paramref name="exists"/> is false
+    /// and that isn't in <paramref name="alsoTaken"/> (songs queued but not yet copied). Adds " (2)", " (3)"… when needed.
     /// </summary>
-    public static string UniqueSongPath(MusicFolder folder, string series, string title, IEnumerable<string>? alsoTaken = null)
+    public static string UniqueSongPath(Func<string, bool> exists, string series, string title, IEnumerable<string>? alsoTaken = null)
     {
         string seriesName = Sanitize(series) ?? throw new MusicLibraryException("Please give the series a name (letters or numbers).");
         string baseName = Sanitize(title) ?? throw new MusicLibraryException("Please give the song a title with some letters or numbers in it.");
@@ -70,7 +70,7 @@ public static class SongFileNames
             string suffix = n == 1 ? "" : $" ({n})";
             string name = baseName.Length + suffix.Length > MaxNameLength ? baseName[..(MaxNameLength - suffix.Length)].TrimEnd() + suffix : baseName + suffix;
             string path = $"{seriesName}/{name}";
-            if (!taken.Contains(path) && !folder.HasSong(path)) return path;
+            if (!taken.Contains(path) && !exists(path)) return path;
         }
     }
 }
