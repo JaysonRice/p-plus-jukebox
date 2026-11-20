@@ -129,6 +129,13 @@ public sealed class TlstFile
         return data;
     }
 
+    /// <summary>Like <see cref="ToBytes"/> but returns an empty array when the tracklist can't be written (too big, bad text).</summary>
+    internal byte[] ToBytesOrEmpty()
+    {
+        try { return ToBytes(); }
+        catch (TlstFormatException) { return []; }
+    }
+
     private static ushort WriteString(MemoryStream strings, string? value, int entry, string what)
     {
         if (value is null) return NoString;
