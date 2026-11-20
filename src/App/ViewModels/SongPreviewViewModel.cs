@@ -41,6 +41,11 @@ public sealed partial class SongPreviewViewModel : ObservableObject
     public int LoopStart => _loop?.Start ?? 0;
     public int LoopEnd => _loop?.End ?? Length;
     public int Length => Audio?.Length ?? 0;
+    /// <summary>
+    /// True if the song has audio after its loop end that never plays. BRSTM files always end at their loop end, so this
+    /// is normally false; the legend only mentions "Never plays" when it applies.
+    /// </summary>
+    public bool HasUnplayedEnd => _loop is { } l && l.End < Length;
     public bool IsPlayingHere => _playingHere;
     public string PlayPauseText => _playingHere ? "❚❚ Pause" : "▶ Play";
 
@@ -89,6 +94,7 @@ public sealed partial class SongPreviewViewModel : ObservableObject
     private void RefreshLoop()
     {
         OnPropertyChanged(nameof(HasLoop));
+        OnPropertyChanged(nameof(HasUnplayedEnd));
         OnPropertyChanged(nameof(LoopStart));
         OnPropertyChanged(nameof(LoopEnd));
         OnPropertyChanged(nameof(LoopText));
