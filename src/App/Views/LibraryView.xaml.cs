@@ -1,5 +1,7 @@
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using PPlusTracklistEditor.App.ViewModels;
 
 namespace PPlusTracklistEditor.App.Views;
@@ -25,14 +27,14 @@ public partial class LibraryView : UserControl
         if (e.PropertyName == nameof(LibraryViewModel.GroupBySeries)) UpdateSeriesColumn();
     }
 
-    /// <summary>The group header already names the series, so the column only shows when not grouping.</summary>
+    /// <summary>Header rows already name the series, so the column only shows when not grouping.</summary>
     private void UpdateSeriesColumn() =>
-        SeriesColumn.Visibility = Vm?.GroupBySeries == true ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+        SeriesColumn.Visibility = Vm?.GroupBySeries == true ? Visibility.Collapsed : Visibility.Visible;
 
-    /// <summary>Raised on double-click in picker mode (= add the song).</summary>
+    /// <summary>Raised on double-click of a song in picker mode (= add it).</summary>
     public event EventHandler? PickRequested;
 
-    /// <summary>Selected songs in the order shown.</summary>
+    /// <summary>Selected songs (not headers) in the order shown.</summary>
     public IReadOnlyList<string> SelectedSongPaths =>
         SongGrid.SelectedItems.OfType<LibrarySongItem>()
             .OrderBy(r => SongGrid.Items.IndexOf(r))
@@ -41,15 +43,39 @@ public partial class LibraryView : UserControl
 
     public void FocusSearch() => SearchBox.Focus();
 
+    private static LibraryRow? RowAt(object source)
+    {
+        for (var d = source as DependencyObject; d is not null; d = VisualTreeHelper.GetParent(d))
+            if (d is DataGridRow row) return row.Item as LibraryRow;
+        return null;
+    }
+
+    /// <summary>Clicking a series header shows or hides its songs.</summary>
+    private void SongGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (Vm is { } vm && RowAt(e.OriginalSource) is SeriesGroup group) vm.ToggleGroup(group);
+    }
+
     private void SongGrid_DoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (Vm is not { } vm || SongGrid.SelectedItem is null) return;
+        if (Vm is not { } vm || RowAt(e.OriginalSource) is not LibrarySongItem) return;
         if (vm.IsPicking) PickRequested?.Invoke(this, EventArgs.Empty);
         else if (vm.PlayCommand.CanExecute(null)) vm.PlayCommand.Execute(null);
     }
 
+    /// <summary>Space: play/stop a song, or open/close a series header. Left/Right also close/open a header.</summary>
     private void SongGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space && Vm?.PlayCommand.CanExecute(null) == true) { Vm.PlayCommand.Execute(null); e.Handled = true; }
+        if (Vm is not { } vm) return;
+        if (SongGrid.SelectedItem is SeriesGroup group)
+        {
+            if (e.Key == Key.Space || (e.Key == Key.Left && group.IsExpanded) || (e.Key == Key.Right && !group.IsExpanded))
+            {
+                vm.ToggleGroup(group);
+                e.Handled = true;
+            }
+            return;
+        }
+        if (e.Key == Key.Space && vm.PlayCommand.CanExecute(null)) { vm.PlayCommand.Execute(null); e.Handled = true; }
     }
 }

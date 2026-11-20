@@ -5,7 +5,7 @@
         <!-- Find: search, which builds use it, sort, grouping -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <Grid DockPanel.Dock="Left" Width="280" Margin="0,0,12,0">
-                <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" />
+                <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}" Padding="6,4" />
                 <TextBlock Text="Search songs (title or series)" IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.5"
                            Visibility="{Binding SearchText, Converter={StaticResource EmptyToVis}}" />
             </Grid>
@@ -37,38 +37,42 @@
             </StackPanel>
         </DockPanel>
 
-        <DataGrid x:Name="SongGrid" ItemsSource="{Binding SongsView}" SelectedItem="{Binding Selected}"
+        <!-- One flat list: series header rows + song rows (fast: only visible rows are built). Click a header to collapse it. -->
+        <DataGrid x:Name="SongGrid" ItemsSource="{Binding RowsView}" SelectedItem="{Binding Selected}"
                   AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="None"
                   CanUserReorderColumns="False" CanUserSortColumns="False"
-                  VirtualizingPanel.IsVirtualizingWhenGrouping="True" VirtualizingPanel.ScrollUnit="Pixel"
+                  VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.VirtualizationMode="Recycling"
                   MouseDoubleClick="SongGrid_DoubleClick" PreviewKeyDown="SongGrid_PreviewKeyDown"
+                  PreviewMouseLeftButtonUp="SongGrid_PreviewMouseLeftButtonUp"
                   AutomationProperties.Name="Songs in your library">
-            <DataGrid.GroupStyle>
-                <GroupStyle>
-                    <GroupStyle.ContainerStyle>
-                        <Style TargetType="GroupItem">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <!-- Name = the SeriesGroup object, so expanded/collapsed lives in the view model (Expand all / Collapse all). -->
-                                    <ControlTemplate TargetType="GroupItem">
-                                        <Expander IsExpanded="{Binding Name.IsExpanded, Mode=TwoWay}" Margin="0,2">
-                                            <Expander.Header>
-                                                <TextBlock>
-                                                    <Run Text="{Binding Name.DisplayName, Mode=OneWay}" FontWeight="SemiBold" />
-                                                    <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat=({0})}" />
-                                                </TextBlock>
-                                            </Expander.Header>
-                                            <ItemsPresenter />
-                                        </Expander>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </GroupStyle.ContainerStyle>
-                </GroupStyle>
-            </DataGrid.GroupStyle>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Cursor" Value="Hand" />
+                            <Setter Property="ToolTip" Value="Click to show or hide this series" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Song" Binding="{Binding Name}" Width="3*" />
+                <DataGridTextColumn Header="Song" Binding="{Binding DisplayText}" Width="3*">
+                    <DataGridTextColumn.ElementStyle>
+                        <!-- Songs sit indented under their series header while grouping. -->
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsHeader}" Value="False" />
+                                        <Condition Binding="{Binding DataContext.GroupBySeries, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Margin" Value="22,0,0,0" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn x:Name="SeriesColumn" Header="Series" Binding="{Binding Series}" Width="1.5*" />
                 <DataGridTextColumn Header="Length" Binding="{Binding LengthText}" Width="70" />
                 <DataGridTextColumn Header="Loop" Binding="{Binding LoopText}" Width="85" />
