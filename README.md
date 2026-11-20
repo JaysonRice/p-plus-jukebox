@@ -22,7 +22,7 @@ src/Core/         no-UI library: file formats + logic (everything testable)
   Library/        AppLibrary (songs + builds, first-run import), Build, SongStore, ProjectPlusFolder, MusicFolder (import source),
                   StageEditSession (edit + save one stage),
                   SongFileNames (safe names), StageNames (pretty names), DiscSongs (Brawl disc song names)
-  Sync/           BuildSync: plan + execute a sync to a Project+ folder (pfsound only)
+  Sync/           BuildSync: plan + execute a sync to a Project+ folder (pf\sound only)
 tests/Core.Tests/ xUnit
 ```
 
