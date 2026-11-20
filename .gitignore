@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+# Not committed (workspace rules)
+PLAN.md
+CLAUDE.md
