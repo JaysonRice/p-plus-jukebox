@@ -218,11 +218,18 @@ public sealed partial class MainViewModel : ObservableObject
         new SyncWindow(new SyncViewModel(build)) { Owner = Owner }.ShowDialog();
     }
 
-    [RelayCommand]
-    private void OpenLibrary()
+    // ---- tabs ----
+
+    private LibraryViewModel? _libraryTab;
+    /// <summary>The "Song library" tab (made on first use).</summary>
+    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null);
+
+    [ObservableProperty] private int _selectedTab;
+
+    partial void OnSelectedTabChanged(int value)
     {
-        new LibraryWindow(new LibraryViewModel(Library, Player, pickForStage: null)) { Owner = Owner }.ShowDialog();
-        Editor?.AfterRowEdit(); // a song may have been deleted; re-check
+        if (value == 1) LibraryTab.Reload();   // builds may have changed since it was last shown
+        else Editor?.AfterRowEdit();           // a song may have been deleted there; re-check the stage
     }
 
     [RelayCommand]

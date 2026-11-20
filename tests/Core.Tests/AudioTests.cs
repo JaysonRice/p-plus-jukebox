@@ -251,14 +251,16 @@ public class AudioTests(ITestOutputHelper output)
     {
         string strm = Path.Combine(RealData.BuildSound, "strm");
         if (!Directory.Exists(strm)) { output.WriteLine("Skipped: no P+ build here"); return; }
-        int n = 0;
+        int n = 0, root = 0;
         foreach (var f in Directory.EnumerateFiles(strm, "*.brstm", SearchOption.AllDirectories))
         {
             var info = BrstmFile.ReadInfo(f);
             if (info.Loop is { } l) Assert.True(l.Start % BrstmFile.BlockSamples == 0, f);
+            Assert.Equal(info, BrstmFile.ReadHeaderInfo(f)); // the fast header-only read agrees with the full one
+            if (Path.GetDirectoryName(f) == strm) root++;
             n++;
         }
-        output.WriteLine($"{n} stock songs read");
+        output.WriteLine($"{n} stock songs read, {root} not in a series folder");
         Assert.True(n > 300);
     }
 

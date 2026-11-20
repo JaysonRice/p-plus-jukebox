@@ -6,7 +6,7 @@
         <TextBlock x:Name="FileText" Style="{StaticResource Hint}" Margin="0,0,0,12" />
         <TextBlock Text="Title (shown in the game's song menu)" Margin="0,0,0,4" />
         <TextBox x:Name="TitleBox" Padding="6,4" Margin="0,0,0,12" />
-        <TextBlock Text="Series (the folder it's kept in, like &quot;Kirby&quot; or &quot;Final Fantasy&quot;)" Margin="0,0,0,4" />
+        <TextBlock Text="Series (optional: the folder it's kept in, like &quot;Kirby&quot;. Leave empty if it isn't from a series.)" TextWrapping="Wrap" Margin="0,0,0,4" />
         <ComboBox x:Name="SeriesBox" IsEditable="True" Margin="0,0,0,16" />
         <DockPanel>
             <Button x:Name="PlayButton" DockPanel.Dock="Left" Content="Play / Stop" Click="Play_Click" Padding="12,4" />

@@ -34,7 +34,6 @@ public partial class AddSongWindow : Window
     private void Add_Click(object sender, RoutedEventArgs e)
     {
         if (SongTitle.Length == 0) { Dialogs.Info(this, "Please give the song a title."); TitleBox.Focus(); return; }
-        if (Series.Length == 0) { Dialogs.Info(this, "Please pick or type a series (for example \"Kirby\")."); SeriesBox.Focus(); return; }
         DialogResult = true;
     }
 }

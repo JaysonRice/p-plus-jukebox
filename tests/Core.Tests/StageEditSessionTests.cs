@@ -161,4 +161,19 @@ public class StageEditSessionTests
         Assert.Equal("Paradigm Shift", Build.DisplayTitle(Song(0xF000, "Final Fantasy/Paradigm Shift")));
         Assert.Equal("Unnamed song", Build.DisplayTitle(Song(0x1, null)));
     }
+
+    [Fact]
+    public void SongWithoutSeries_IsSavedAndSyncedStraightIntoStrm()
+    {
+        var (t, lib, ky) = Kentucky();
+        using var _ = t;
+        var session = ky.OpenStage("Temple_of_Time");
+        TlstEntry loose = session.AddSong(t.DownloadedBrstm("loose.brstm"), "Loose Song", series: "");
+        Assert.Equal("Loose Song", loose.Path);
+        session.Save();
+        Assert.True(lib.Songs.Has("Loose Song"));
+
+        PPlusTracklistEditor.Core.Sync.BuildSync.Execute(PPlusTracklistEditor.Core.Sync.BuildSync.Plan(ky, t.ProjectPlus));
+        Assert.True(t.SdHasSong("Loose Song")); // strm\Loose Song.brstm
+    }
 }
