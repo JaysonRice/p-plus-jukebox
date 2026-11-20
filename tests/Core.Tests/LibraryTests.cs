@@ -204,4 +204,29 @@ public class LibraryTests
     {
         public void Report((int Done, int Total) value) => log.Add(value);
     }
+
+    // ---------- Loop Maker: songs straight into the library ----------
+
+    [Fact]
+    public void AddSong_CopiesIntoTheLibraryNow_WithASafeUniqueName_AndNoBuildUsesIt()
+    {
+        using var t = new TempSetup();
+        t.StockProjectPlus();
+        var lib = t.CreateLibrary();
+        t.Brstm(lib.SongsDir, "Kirby/Gourmet Race");
+
+        string path = lib.AddSong(t.DownloadedBrstm("made.brstm"), "Gourmet Race", "Kirby");
+        string loose = lib.AddSong(t.DownloadedBrstm("loose.brstm"), "Café Theme", "");
+
+        Assert.Equal("Kirby/Gourmet Race (2)", path);
+        Assert.Equal("Cafe Theme", loose);
+        Assert.True(lib.Songs.Has(path));
+        Assert.Contains(path, lib.UnusedSongs());
+        Assert.True(File.Exists(Path.Combine(t.Downloads, "made.brstm"))); // copied, not moved
+
+        string wav = Path.Combine(t.Downloads, "song.wav");
+        File.WriteAllBytes(wav, "RIFF0000WAVE"u8.ToArray());
+        Assert.Throws<MusicLibraryException>(() => lib.AddSong(wav, "Song", ""));
+        Assert.Throws<MusicLibraryException>(() => lib.AddSong(t.DownloadedBrstm("x.brstm"), "  ", ""));
+    }
 }

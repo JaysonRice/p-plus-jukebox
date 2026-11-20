@@ -192,6 +192,21 @@ public sealed class AppLibrary
         return Builds().Where(build => build.SongPathsUsed().Contains(main)).ToList();
     }
 
+    /// <summary>
+    /// Copies a .brstm into the library right away (the Loop Maker tab), as <c>songs\&lt;series&gt;\&lt;title&gt;.brstm</c>
+    /// with a safe, unique name. Returns its song path ("Series/Title"). No build uses it until it's added to a stage.
+    /// </summary>
+    public string AddSong(string brstmFile, string title, string series)
+    {
+        if (!File.Exists(brstmFile)) throw new MusicLibraryException($"Can't find the file \"{brstmFile}\".");
+        if (!StageEditSession.IsBrstm(brstmFile))
+            throw new MusicLibraryException($"\"{Path.GetFileName(brstmFile)}\" isn't a BRSTM song file.");
+        if (string.IsNullOrWhiteSpace(title)) throw new MusicLibraryException("Please give the song a title.");
+        string songPath = SongFileNames.UniqueSongPath(Songs.Has, series, title);
+        Songs.Add(brstmFile, songPath);
+        return songPath;
+    }
+
     /// <summary>Deletes a song (and its "_b" version) from the library. Refused while any build uses it.</summary>
     public void DeleteSong(string songPath)
     {
