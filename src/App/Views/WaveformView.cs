@@ -19,7 +19,8 @@ public sealed class MarkerMovedEventArgs(LoopMarker marker, int sample, bool fin
 
 /// <summary>
 /// Draws a song's waveform with the loop start/end markers and the playback position.
-/// Mouse: drag a marker to move it; drag anywhere else to scroll; click to jump playback there; wheel to zoom.
+/// Mouse: drag a flag to move it; drag the blue line (or click/drag in the time strip) to move the playback position;
+/// drag the background to scroll; click it to move the blue line there; wheel to zoom.
 ///
 /// The view (which part of the song is visible) is <see cref="ViewStart"/> + <see cref="ViewLength"/> in samples,
 /// both bindable so the window's zoom buttons can set them. The markers are one-way: dragging raises
@@ -38,6 +39,7 @@ public sealed class WaveformView : FrameworkElement
     private Geometry? _waveGeometry;
     private (WaveformData?, double, double, double, double) _waveKey;
     private LoopMarker? _dragging;
+    private bool _draggingPlayhead;
     private Point _pressPoint;
     private double _pressViewStart;
     private bool _panning, _pressed;
@@ -151,7 +153,19 @@ public sealed class WaveformView : FrameworkElement
         if (Playhead >= 0)
         {
             double x = XOf(Playhead);
-            if (x >= 0 && x <= w) dc.DrawLine(new Pen(PlayheadBrush, 2), new Point(x, RulerHeight), new Point(x, h));
+            if (x >= -8 && x <= w + 8)
+            {
+                dc.DrawLine(new Pen(PlayheadBrush, 2), new Point(x, RulerHeight), new Point(x, h));
+                // A grab tab in the time strip, so the line can be dragged even where it sits on a flag.
+                var tab = new StreamGeometry();
+                using (var ctx = tab.Open())
+                {
+                    ctx.BeginFigure(new Point(x - 6, 2), isFilled: true, isClosed: true);
+                    ctx.PolyLineTo([new Point(x + 6, 2), new Point(x + 6, RulerHeight - 6), new Point(x, RulerHeight), new Point(x - 6, RulerHeight - 6)], isStroked: false, isSmoothJoin: false);
+                }
+                tab.Freeze();
+                dc.DrawGeometry(PlayheadBrush, null, tab);
+            }
         }
     }
 
@@ -236,13 +250,14 @@ public sealed class WaveformView : FrameworkElement
 
     // ---- mouse ----
 
-    private LoopMarker? MarkerAt(Point p)
+    private LoopMarker? MarkerAt(Point p, bool flagsOnly = false)
     {
         if (!ShowLoop || Waveform is null) return null;
         var area = WaveArea;
         double xs = XOf(LoopStart), xe = XOf(LoopEnd);
         if (HandleRect(xe, true, area).Contains(p)) return LoopMarker.End;
         if (HandleRect(xs, false, area).Contains(p)) return LoopMarker.Start;
+        if (flagsOnly) return null;
         double ds = Math.Abs(p.X - xs), de = Math.Abs(p.X - xe);
         if (Math.Min(ds, de) > GrabDistance) return null;
         return de <= ds ? LoopMarker.End : LoopMarker.Start;
@@ -254,7 +269,12 @@ public sealed class WaveformView : FrameworkElement
         Focus();
         _pressPoint = e.GetPosition(this);
         _pressViewStart = ViewStart;
-        _dragging = MarkerAt(_pressPoint);
+        // What gets grabbed, in order: a flag, the blue line (its tab, the line itself, or anywhere in the time strip),
+        // a flag's line, else the background (drag = scroll, click = move the blue line).
+        _dragging = MarkerAt(_pressPoint, flagsOnly: true);
+        _draggingPlayhead = _dragging is null && PlayheadAt(_pressPoint);
+        if (_dragging is null && !_draggingPlayhead) _dragging = MarkerAt(_pressPoint);
+        if (_draggingPlayhead && _pressPoint.Y < RulerHeight) Seek(_pressPoint.X); // clicking the time strip jumps there
         _pressed = true;
         _panning = false;
         CaptureMouse();
@@ -266,7 +286,12 @@ public sealed class WaveformView : FrameworkElement
         var p = e.GetPosition(this);
         if (!_pressed)
         {
-            Cursor = MarkerAt(p) is not null ? Cursors.SizeWE : Cursors.Arrow;
+            Cursor = MarkerAt(p) is not null || PlayheadAt(p) ? Cursors.SizeWE : Cursors.Arrow;
+            return;
+        }
+        if (_draggingPlayhead)
+        {
+            Seek(p.X);
             return;
         }
         if (_dragging is { } m)
@@ -288,17 +313,28 @@ public sealed class WaveformView : FrameworkElement
         var p = e.GetPosition(this);
         if (_dragging is { } m)
             MarkerMoved?.Invoke(this, new MarkerMovedEventArgs(m, (int)Math.Round(SampleOf(Math.Clamp(p.X, 0, ActualWidth))), finished: true));
-        else if (!_panning)
-            SeekRequested?.Invoke(this, (int)Math.Clamp(Math.Round(SampleOf(p.X)), 0, Total));
+        else if (_draggingPlayhead || !_panning)
+            Seek(p.X);
         _pressed = false;
+        _draggingPlayhead = false;
         _panning = false;
         _dragging = null;
         Cursor = Cursors.Arrow;
         ReleaseMouseCapture();
     }
 
+    private bool PlayheadAt(Point p)
+    {
+        if (Waveform is null || Playhead < 0) return false;
+        if (p.Y < RulerHeight) return true;
+        return Math.Abs(p.X - XOf(Playhead)) <= GrabDistance;
+    }
+
+    private void Seek(double x) => SeekRequested?.Invoke(this, (int)Math.Clamp(Math.Round(SampleOf(Math.Clamp(x, 0, ActualWidth))), 0, Total));
+
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
+        _draggingPlayhead = false;
         _pressed = false;
         _panning = false;
         _dragging = null;
