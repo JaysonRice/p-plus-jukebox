@@ -29,6 +29,22 @@ public partial class LibraryView : UserControl
         if (e.PropertyName is nameof(LibraryViewModel.Sort) or nameof(LibraryViewModel.Descending)) UpdateSortArrow();
     }
 
+    /// <summary>Files dragged over the list can be added (not in the add-to-stage picker, which only chooses).</summary>
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        bool ok = Vm is { IsPicking: false } && e.Data.GetDataPresent(DataFormats.FileDrop);
+        e.Effects = ok ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDrop(object sender, DragEventArgs e)
+    {
+        if (Vm is not { IsPicking: false } vm || e.Data.GetData(DataFormats.FileDrop) is not string[] { Length: > 0 } paths) return;
+        e.Handled = true;
+        // Let the drag finish before the dialog opens, so the file manager isn't left waiting on us.
+        Dispatcher.BeginInvoke(() => vm.ImportFilesRequested?.Invoke(paths));
+    }
+
     /// <summary>A column heading was clicked: the view model flips the direction or switches to that column. (We sort ourselves.)</summary>
     private void SongGrid_Sorting(object sender, DataGridSortingEventArgs e)
     {

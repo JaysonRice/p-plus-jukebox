@@ -207,6 +207,22 @@ public sealed class AppLibrary
         return songPath;
     }
 
+    /// <summary>
+    /// The library song that is byte-for-byte this file (so importing it again would just make a copy), or null.
+    /// Only songs of the same size are compared, so this is quick even with hundreds of songs.
+    /// </summary>
+    public string? FindDuplicate(string brstmFile)
+    {
+        if (!File.Exists(brstmFile)) return null;
+        long length = new FileInfo(brstmFile).Length;
+        foreach (string songPath in Songs.All())
+        {
+            string file = Songs.FileFor(songPath);
+            if (new FileInfo(file).Length == length && SongStore.SameContent(brstmFile, file)) return songPath;
+        }
+        return null;
+    }
+
     /// <summary>Deletes a song (and its "_b" version) from the library. Refused while any build uses it.</summary>
     public void DeleteSong(string songPath)
     {

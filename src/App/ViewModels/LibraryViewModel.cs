@@ -369,6 +369,17 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     private bool HasSong => SelectedSong is not null;
 
+    /// <summary>Set by the main window: files picked with "Add BRSTM files…" or dropped on the list are handed to it.</summary>
+    public Action<IReadOnlyList<string>>? ImportFilesRequested { get; set; }
+
+    [RelayCommand]
+    private void AddFiles()
+    {
+        var owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+        var files = Dialogs.PickFiles(owner, "Choose BRSTM songs to add to your library", "BRSTM songs (*.brstm)|*.brstm|All files|*.*");
+        if (files.Length > 0) ImportFilesRequested?.Invoke(files);
+    }
+
     /// <summary>Set by the main window: "Add to a stage…" hands it the selected song (path and display name).</summary>
     public Action<string, string>? AddToStageRequested { get; set; }
 
