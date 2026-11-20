@@ -111,4 +111,69 @@ public class LoopFinderTests(ITestOutputHelper output)
         output.WriteLine($"{right}/{tried} right");
         Assert.True(tried == 0 || right >= tried * 0.9, $"only {right}/{tried} right");
     }
+
+    /// <summary>True if the n samples after a and after b are the same audio (relative difference under 1%).</summary>
+    private static bool Identical(PcmAudio audio, int a, int b, int n)
+    {
+        if (b + n > audio.Length) n = audio.Length - b;
+        double diff = 0, energy = 0;
+        foreach (var ch in audio.Channels)
+            for (int i = 0; i < n; i++) { double x = ch[a + i], y = ch[b + i]; diff += (x - y) * (x - y); energy += x * x; }
+        return energy == 0 || diff / energy < 0.01;
+    }
+
+    // ---------- whole loop (start + end) ----------
+
+    [Fact]
+    public void SuggestLoops_FindsWhereTheIntroEnds_AndOneLoopLater()
+    {
+        int rate = 44100;
+        var intro = Melody(rate, 6, seed: 11);
+        var body = Melody(rate, 18, seed: 12);
+        var audio = Song(rate, intro, body, body, body[..(rate * 5)]);
+
+        var sw = Stopwatch.StartNew();
+        var best = LoopFinder.SuggestLoops(audio)[0];
+        output.WriteLine($"{sw.ElapsedMilliseconds} ms; start {best.Start} (intro ends {intro.Length}), length {best.End - best.Start} (loop {body.Length}), {best.Match:P0}");
+
+        Assert.InRange(best.Start, intro.Length, intro.Length + rate);              // just inside the loop: you hear the intro once
+        Assert.InRange(best.End - best.Start, body.Length - 2, body.Length + 2);    // exactly one time through
+    }
+
+    [Fact]
+    public void SuggestLoops_MusicThatNeverRepeats_GivesNothing()
+    {
+        var audio = Song(32000, Melody(32000, 60, seed: 13));
+        Assert.Empty(LoopFinder.SuggestLoops(audio));
+    }
+
+    [Fact]
+    public void SuggestLoops_RealSongsPlayedTwice_FindTheirRealLoop()
+    {
+        string strm = Path.Combine(RealData.BuildSound, "strm");
+        if (!Directory.Exists(strm)) { output.WriteLine("Skipped: no P+ build here"); return; }
+        var files = Directory.EnumerateFiles(strm, "*.brstm", SearchOption.AllDirectories).Order().Where((_, i) => i % 15 == 0).Take(20).ToList();
+        int right = 0, tried = 0;
+        var sw = Stopwatch.StartNew();
+        foreach (var file in files)
+        {
+            var (audio, loop) = BrstmFile.Decode(file);
+            if (loop is not { } l || l.Length < audio.SampleRate * 12) continue;
+            tried++;
+            int tail = Math.Min(l.Length, audio.SampleRate * 20);
+            var twice = new PcmAudio(audio.Channels.Select(c => c[..l.End].Concat(c[l.Start..(l.Start + tail)]).ToArray()).ToArray(), audio.SampleRate);
+            var best = LoopFinder.SuggestLoops(twice).FirstOrDefault();
+            // Right = exactly the real loop length, the 2 s after the start are the same audio as the 2 s after the end
+            // (so the jump is seamless), and it doesn't start later than the real loop (+1 s). Starting earlier is fine
+            // when the intro ends exactly like the loop does: that's still seamless, the song's author just chose later.
+            bool ok = best is not null
+                      && best.End - best.Start == l.Length
+                      && best.Start <= l.Start + audio.SampleRate
+                      && Identical(twice, best.Start, best.End, 2 * audio.SampleRate);
+            if (ok) right++;
+            output.WriteLine($"{(ok ? "ok  " : "MISS")} {Path.GetFileNameWithoutExtension(file)}: real {l.Start}-{l.End} (len {l.Length}), suggested {best?.Start}-{best?.End} (len {best?.End - best?.Start}, {best?.Match:P0})");
+        }
+        output.WriteLine($"{right}/{tried} right, {sw.ElapsedMilliseconds / Math.Max(1, tried)} ms each");
+        Assert.True(tried == 0 || right >= tried * 0.9, $"only {right}/{tried} right");
+    }
 }

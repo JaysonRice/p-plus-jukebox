@@ -5,6 +5,12 @@ namespace PPlusTracklistEditor.Core.Audio;
 /// <summary>A suggested loop end. <see cref="Match"/> is how alike the music sounds after it and after the loop start (0..1).</summary>
 public sealed record LoopSuggestion(int End, double Match);
 
+/// <summary>A suggested whole loop: where it starts and ends, and how alike the repeat sounds (0..1).</summary>
+public sealed record LoopPairSuggestion(int Start, int End, double Match)
+{
+    public LoopPoints Loop => new(Start, End);
+}
+
 /// <summary>
 /// "Suggest a loop end": given where the loop starts, find where the song comes back around to that same music.
 ///
@@ -81,6 +87,106 @@ public static class LoopFinder
             .ThenBy(sug => sug.End)
             .ToList();
     }
+
+    /// <summary>
+    /// Suggests a whole loop (start and end) for a file that plays its loop more than once (intro, loop, loop again...).
+    ///
+    /// For every possible loop length L (8 s and up), it compares the song with itself L later: frame t against frame
+    /// t + L. Where the song repeats, that similarity stays near 1 for as long as the repeat lasts. The real loop length
+    /// is the one with the longest such stretch, since the repeat covers the whole loop. (A phrase that repeats inside
+    /// the song only matches for a short while; twice the loop length matches too, but over a shorter stretch, because
+    /// the file runs out sooner.) The stretch begins where the intro ends: that's the loop start. The end is one loop
+    /// length later, lined up to the exact sample.
+    ///
+    /// Cost: about frames² / 2 comparisons of 36 numbers. To keep a long song under a second, this uses every second
+    /// frame (~46 ms apart); the exact sample is found afterwards.
+    /// </summary>
+    public static IReadOnlyList<LoopPairSuggestion> SuggestLoops(PcmAudio audio, int count = 5, CancellationToken cancel = default)
+    {
+        float[] mono = Mono(audio);
+        float[] analysis = Resampled(mono, audio.SampleRate);
+        double ratio = (double)audio.SampleRate / AnalysisRate;
+        var all = Features(analysis, cancel);
+        var g = all.Where((_, i) => i % 2 == 0).ToArray();
+        int frames = g.Length;
+        double fps = (double)AnalysisRate / (Hop * 2);
+        int minLag = (int)(MinLoopSeconds * fps), minRun = (int)(4 * fps), smooth = (int)(2 * fps);
+        if (frames - minLag < minRun) return [];
+
+        var runs = new (int Lag, int Start, int Length, double Match)[frames];
+        Parallel.For(minLag, frames - minRun + 1, new ParallelOptions { CancellationToken = cancel }, lag =>
+        {
+            int n = frames - lag;
+            var prefix = new double[n + 1];
+            for (int t = 0; t < n; t++) prefix[t + 1] = prefix[t] + Dot(g[t], g[t + lag]);
+            // Longest stretch where the 2-second average similarity stays above RepeatLevel.
+            int bestStart = 0, bestLen = 0, runStart = -1;
+            for (int t = 0; t <= n; t++)
+            {
+                bool high = t + smooth <= n && (prefix[t + smooth] - prefix[t]) / smooth >= RepeatLevel;
+                if (high && runStart < 0) runStart = t;
+                if (!high && runStart >= 0)
+                {
+                    int len = t - runStart + smooth; // the last high window reaches smooth frames further
+                    if (len > bestLen) { bestLen = Math.Min(len, n - runStart); bestStart = runStart; }
+                    runStart = -1;
+                }
+            }
+            double match = bestLen > 0 ? (prefix[bestStart + bestLen] - prefix[bestStart]) / bestLen : 0;
+            runs[lag] = (lag, bestStart, bestLen, match);
+        });
+
+        // The real loop keeps repeating until the file runs out (or fades), while a section that repeats inside the song
+        // stops partway. So: repeats that reach the end first, then the longest, then the shortest loop.
+        int endSlack = (int)(3 * fps);
+        bool ReachesEnd((int Lag, int Start, int Length, double Match) r) => r.Start + r.Length >= frames - r.Lag - endSlack;
+        var picked = new List<(int Lag, int Start, int Length, double Match)>();
+        foreach (var r in runs.Where(r => r.Length >= minRun).OrderByDescending(ReachesEnd).ThenByDescending(r => r.Length).ThenBy(r => r.Lag))
+        {
+            if (picked.Count == count) break;
+            if (picked.All(p => Math.Abs(p.Lag - r.Lag) >= fps)) picked.Add(r);
+        }
+
+        int frameSamples = (int)Math.Round(2 * Hop * ratio);
+        int rate = audio.SampleRate;
+        return picked.Select(r =>
+        {
+            // 1. Exact loop length, measured in the middle of the repeat where it's surely the same music.
+            int mid = Math.Min((r.Start + r.Length / 2) * frameSamples, mono.Length - 1);
+            int lag = Refine(mono, rate, mid, mid + r.Lag * frameSamples, frameSamples * 2) - mid;
+            // 2. Walk back while the audio one loop later is (nearly) identical: 50 ms steps, then 5 ms steps.
+            //    "Sounds similar" isn't enough here: an intro often ends like the loop does, but with small differences
+            //    you'd hear right after the jump.
+            int s = mid;
+            foreach (int step in new[] { rate / 20, rate / 200 })
+                while (s - step >= 0 && SameAudio(mono, s - step, s - step + lag, step)) s -= step;
+            // 3. Start a little inside that point (50 ms, or less for a short loop); any start inside the repeat is seamless.
+            int start = Math.Min(s + rate / 20, mid);
+            int end = Math.Min(start + lag, audio.Length);
+            return new LoopPairSuggestion(start, end, Math.Clamp(r.Match, 0, 1));
+        })
+        .DistinctBy(p => (p.End - p.Start) / Math.Max(1, rate / 100)) // two rough lengths can land on the same exact loop
+        .ToList();
+    }
+
+    /// <summary>
+    /// True if mono[a..a+n) and mono[b..b+n) are essentially the same audio: their difference has under 2% of their
+    /// energy (silence counts as the same). Allows for lossy-file noise, not for different notes or instruments.
+    /// </summary>
+    private static bool SameAudio(float[] mono, int a, int b, int n)
+    {
+        if (b + n > mono.Length) return false;
+        double diff = 0, energy = 0;
+        for (int i = 0; i < n; i++)
+        {
+            double x = mono[a + i], y = mono[b + i];
+            diff += (x - y) * (x - y);
+            energy += x * x + y * y;
+        }
+        return energy < n * 1e-8 || diff / energy < 0.02;
+    }
+    /// <summary>How similar (2-second average) two stretches must be to count as the same music playing again.</summary>
+    private const double RepeatLevel = 0.9;
 
     /// <summary>
     /// Moves a rough end (within ±<paramref name="range"/> samples) to where the waveform after it best lines up with the
