@@ -1,16 +1,16 @@
 namespace PPlusTracklistEditor.Core.Library;
 
 /// <summary>
-/// A folder laid out like P+'s <c>pf/sound</c>: <c>strm/</c> (songs) and <c>tracklist/</c> (stage tracklists).
-/// Both the user's music repo and the build's stock sound folder are music folders.
+/// A folder laid out like P+'s <c>pf/sound</c>: <c>strm/</c> (songs) and <c>tracklist/</c> (stage tracklists),
+/// e.g. someone's music repo. Used as an import source.
 /// </summary>
 public sealed class MusicFolder
 {
     public string Root { get; }
-    public string StrmDir => System.IO.Path.Combine(Root, "strm");
-    public string TracklistDir => System.IO.Path.Combine(Root, "tracklist");
+    public string StrmDir => Path.Combine(Root, "strm");
+    public string TracklistDir => Path.Combine(Root, "tracklist");
 
-    private MusicFolder(string root) => Root = System.IO.Path.GetFullPath(root);
+    private MusicFolder(string root) => Root = Path.GetFullPath(root);
 
     /// <summary>Opens a music folder. Fails with a plain-language reason if it isn't one.</summary>
     public static MusicFolder Open(string root)
@@ -26,24 +26,9 @@ public sealed class MusicFolder
 
     /// <summary>Stage names (tracklist file names without ".tlst").</summary>
     public IEnumerable<string> TracklistNames() =>
-        Directory.EnumerateFiles(TracklistDir, "*.tlst").Select(f => System.IO.Path.GetFileNameWithoutExtension(f));
+        Directory.EnumerateFiles(TracklistDir, "*.tlst").Select(f => Path.GetFileNameWithoutExtension(f));
 
-    public string TracklistPath(string stageName) => System.IO.Path.Combine(TracklistDir, stageName + ".tlst");
-
-    /// <summary>Full path of a song given the path stored in a tracklist ("Series/Title").</summary>
-    public string SongFile(string songPath) =>
-        System.IO.Path.Combine(StrmDir, songPath.Replace('/', System.IO.Path.DirectorySeparatorChar) + ".brstm");
-
-    public bool HasSong(string songPath) => File.Exists(SongFile(songPath));
-
-    /// <summary>Series folders (first level under strm/), for the "which series?" picker.</summary>
-    public IEnumerable<string> SeriesFolders() =>
-        Directory.EnumerateDirectories(StrmDir).Select(d => System.IO.Path.GetFileName(d));
-
-    /// <summary>Every song as a tracklist-style path ("Series/Title").</summary>
-    public IEnumerable<string> AllSongPaths() =>
-        Directory.EnumerateFiles(StrmDir, "*.brstm", SearchOption.AllDirectories)
-            .Select(f => System.IO.Path.GetRelativePath(StrmDir, f)[..^".brstm".Length].Replace('\\', '/'));
+    public string TracklistPath(string stageName) => Path.Combine(TracklistDir, stageName + ".tlst");
 }
 
 /// <summary>A problem with the user's folders or files, worded so it can be shown to the user as-is.</summary>

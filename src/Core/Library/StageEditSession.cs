@@ -7,49 +7,47 @@ public enum ProblemSeverity { Warning, Error }
 /// <summary>Something wrong with a stage, in words the user can act on. Errors block saving; warnings don't.</summary>
 public sealed record Problem(ProblemSeverity Severity, string Message, int? EntryIndex = null);
 
-/// <summary>A song file waiting to be copied into the music folder when the stage is saved.</summary>
+/// <summary>A song file waiting to be copied into the library when the stage is saved.</summary>
 public sealed record PendingSong(string SourceFile, string SongPath);
 
 /// <summary>
-/// Editing one stage's tracklist. Nothing touches disk until <see cref="Save"/>: new song files are queued and
-/// copied on save, then the tracklist is written. Cancel = just drop the session.
+/// Editing one stage's tracklist in one build. Nothing touches disk until <see cref="Save"/>: new song files are
+/// queued and copied into the shared library on save, then the build's tracklist is written. Cancel = drop the session.
 /// </summary>
 public sealed class StageEditSession
 {
     public const byte DefaultVolume = 80;
     public const byte DefaultFrequency = 40;
 
-    private readonly MusicLibrary _library;
     private byte[] _savedBytes;
     private readonly List<PendingSong> _pending = [];
 
+    public Build Build { get; }
     public string StageName { get; }
     public string DisplayName => StageNames.Pretty(StageName);
     public TlstFile Tracklist { get; private set; }
     public IReadOnlyList<PendingSong> PendingSongs => _pending;
+    private AppLibrary Library => Build.Library;
 
-    /// <summary>True until the first save of a stage that only existed in the stock build.</summary>
-    public bool StartsFromStock { get; private set; }
-
-    internal StageEditSession(MusicLibrary library, string stageName, byte[] bytes, bool startsFromStock)
+    internal StageEditSession(Build build, string stageName, byte[] bytes)
     {
-        _library = library;
+        Build = build;
         StageName = stageName;
         _savedBytes = bytes;
         Tracklist = TlstFile.Read(bytes);
-        StartsFromStock = startsFromStock;
     }
 
-    public bool IsDirty => StartsFromStock || _pending.Count > 0 || !Tracklist.ToBytesOrEmpty().AsSpan().SequenceEqual(_savedBytes);
+    public bool IsDirty => _pending.Count > 0 || !Tracklist.ToBytesOrEmpty().AsSpan().SequenceEqual(_savedBytes);
 
-    public SongLocation Locate(TlstEntry entry) =>
-        _pending.Any(p => p.SongPath.Equals(entry.Path, StringComparison.OrdinalIgnoreCase))
-            ? new SongLocation(SongSource.MusicFolder, _pending.First(p => p.SongPath.Equals(entry.Path, StringComparison.OrdinalIgnoreCase)).SourceFile)
-            : _library.Locate(entry);
+    public SongLocation Locate(TlstEntry entry)
+    {
+        PendingSong? pending = _pending.FirstOrDefault(p => p.SongPath.Equals(entry.Path, StringComparison.OrdinalIgnoreCase));
+        return pending is not null ? new SongLocation(SongSource.Library, pending.SourceFile) : Build.Locate(entry);
+    }
 
     /// <summary>
-    /// Adds a new song from a .brstm file anywhere on the computer. The file is copied into
-    /// <c>strm/&lt;series&gt;/&lt;title&gt;.brstm</c> on save, with a safe, unique name.
+    /// Adds a new song from a .brstm file anywhere on the computer. On save it's copied into the library as
+    /// <c>songs\&lt;series&gt;\&lt;title&gt;.brstm</c> with a safe, unique name.
     /// </summary>
     public TlstEntry AddSong(string brstmFile, string title, string series)
     {
@@ -58,16 +56,16 @@ public sealed class StageEditSession
             throw new MusicLibraryException($"\"{Path.GetFileName(brstmFile)}\" isn't a BRSTM song file. Convert it to BRSTM first.");
         if (string.IsNullOrWhiteSpace(title)) throw new MusicLibraryException("Please give the song a title.");
 
-        string songPath = SongFileNames.UniqueSongPath(_library.Music, series, title, _pending.Select(p => p.SongPath));
+        string songPath = SongFileNames.UniqueSongPath(Library.Songs.Has, series, title, _pending.Select(p => p.SongPath));
         _pending.Add(new PendingSong(Path.GetFullPath(brstmFile), songPath));
         return AddEntry(songPath, title.Trim());
     }
 
-    /// <summary>Adds a song that's already in the music folder or stock build (by its tracklist path).</summary>
-    public TlstEntry AddExistingSong(string songPath, string title)
+    /// <summary>Adds a song that's already in the library (by its path, "Series/Name").</summary>
+    public TlstEntry AddExistingSong(string songPath, string? title = null)
     {
-        var probe = new TlstEntry { Path = songPath };
-        if (Locate(probe).Source == SongSource.Missing) throw new MusicLibraryException($"There's no song \"{songPath}\".");
+        if (Locate(new TlstEntry { Path = songPath }).Source == SongSource.Missing)
+            throw new MusicLibraryException($"The library has no song \"{songPath}\".");
         return AddEntry(songPath, string.IsNullOrWhiteSpace(title) ? songPath.Split('/')[^1] : title.Trim());
     }
 
@@ -85,7 +83,7 @@ public sealed class StageEditSession
         return entry;
     }
 
-    /// <summary>Removes a song from this stage. Its file stays (other stages may use it). A queued file is un-queued if nothing else uses it.</summary>
+    /// <summary>Removes a song from this stage. The library keeps the file. A queued file is un-queued if nothing else uses it.</summary>
     public void Remove(TlstEntry entry)
     {
         Tracklist.Entries.Remove(entry);
@@ -102,6 +100,17 @@ public sealed class StageEditSession
         list.Insert(to, e);
     }
 
+    /// <summary>True when the Default build has this stage, so <see cref="ResetToDefault"/> can work.</summary>
+    public bool CanResetToDefault => !Build.IsDefault && File.Exists(Library.DefaultBuild.TracklistPath(StageName));
+
+    /// <summary>Replaces this stage's songs with the Default build's (unsaved until <see cref="Save"/>).</summary>
+    public void ResetToDefault()
+    {
+        if (!CanResetToDefault) throw new MusicLibraryException("There's no default song list for this stage.");
+        Tracklist = TlstFile.Load(Library.DefaultBuild.TracklistPath(StageName));
+        _pending.Clear();
+    }
+
     public IReadOnlyList<Problem> Validate()
     {
         var problems = new List<Problem>();
@@ -109,20 +118,22 @@ public sealed class StageEditSession
 
         if (entries.Count == 0)
             problems.Add(new(ProblemSeverity.Warning, "This stage has no songs, so it will be silent."));
-        if (_library.Stock is not null && !_library.Stock.TracklistNames().Contains(StageName, StringComparer.OrdinalIgnoreCase))
+        if (Library.KnownStages.Count > 0 && !Library.KnownStages.Contains(StageName))
             problems.Add(new(ProblemSeverity.Warning,
-                $"Project+ doesn't have a stage tracklist called \"{StageName}\", so these songs won't play anywhere. It may be named differently in this version."));
+                $"Your Project+ doesn't have a stage tracklist called \"{StageName}\", so these songs won't play anywhere. It may be named differently in your version."));
         if (entries.Count > 0 && entries.All(e => e.Frequency == 0))
             problems.Add(new(ProblemSeverity.Warning, "Every song is set to never play (\"how often\" is 0)."));
 
         for (int i = 0; i < entries.Count; i++)
         {
             TlstEntry e = entries[i];
-            string name = $"\"{MusicLibrary.DisplayTitle(e)}\"";
+            string name = $"\"{Build.DisplayTitle(e)}\"";
             if (Locate(e).Source == SongSource.Missing)
                 problems.Add(new(ProblemSeverity.Error, $"{name}: its song file ({e.Path}.brstm) is missing, so it would play silence. Find the file or remove the song.", i));
             if (e.Path is null && DiscSongs.Find(e.SongId) is null)
                 problems.Add(new(ProblemSeverity.Warning, $"{name} is an original Brawl song this app doesn't recognize (ID {e.SongId:X4}).", i));
+            if (e.Path is not null && e.Path.Contains('\\'))
+                problems.Add(new(ProblemSeverity.Warning, $"{name}: its file path uses \"\\\" instead of \"/\", which the Wii may not understand. It will be fixed when you save.", i));
             if (e.Volume == 0)
                 problems.Add(new(ProblemSeverity.Warning, $"{name} has volume 0, so it will be silent.", i));
             if (entries.Take(i).Any(prev => prev.SongId == e.SongId))
@@ -135,7 +146,7 @@ public sealed class StageEditSession
     }
 
     /// <summary>
-    /// Copies queued song files into the music folder, backs up the old tracklist, and writes the new one.
+    /// Copies queued song files into the library, backs up the build's old tracklist, and writes the new one.
     /// Refuses if <see cref="Validate"/> finds errors.
     /// </summary>
     public void Save()
@@ -144,26 +155,22 @@ public sealed class StageEditSession
         if (errors.Count > 0)
             throw new MusicLibraryException("Can't save yet:" + Environment.NewLine + string.Join(Environment.NewLine, errors.Select(e => "• " + e.Message)));
 
+        foreach (TlstEntry e in Tracklist.Entries)
+            if (e.Path is not null) e.Path = SongStore.Normalize(e.Path);
         byte[] bytes = Tracklist.ToBytes();
-        MusicFolder music = _library.Music;
-
         foreach (PendingSong song in _pending)
-        {
-            string target = music.SongFile(song.SongPath);
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(song.SourceFile, target, overwrite: false); // unique name was chosen when queued; never overwrite
-        }
+            Library.Songs.Add(song.SourceFile, song.SongPath); // unique name was chosen when queued; never overwrites
         _pending.Clear();
 
-        string tlstPath = music.TracklistPath(StageName);
+        string tlstPath = Build.TracklistPath(StageName);
         if (File.Exists(tlstPath))
         {
-            Directory.CreateDirectory(_library.BackupDir);
-            File.Copy(tlstPath, Path.Combine(_library.BackupDir, $"{StageName}.{DateTime.Now:yyyyMMdd-HHmmss-fff}.tlst"));
+            string backups = Path.Combine(Library.BackupDir, Build.Id);
+            Directory.CreateDirectory(backups);
+            File.Copy(tlstPath, Path.Combine(backups, $"{StageName}.{DateTime.Now:yyyyMMdd-HHmmss-fff}.tlst"));
         }
         Tracklist.Save(tlstPath);
         _savedBytes = bytes;
-        StartsFromStock = false;
     }
 
     internal static bool IsBrstm(string file)
