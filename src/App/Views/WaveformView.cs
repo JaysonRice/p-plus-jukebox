@@ -65,10 +65,6 @@ public sealed class WaveformView : FrameworkElement
     public static readonly DependencyProperty LoopEndProperty = Dp(nameof(LoopEnd), 0);
     public int LoopEnd { get => (int)GetValue(LoopEndProperty); set => SetValue(LoopEndProperty, value); }
 
-    /// <summary>False in the song library: the loop is shown but its flags can't be dragged.</summary>
-    public static readonly DependencyProperty CanEditLoopProperty = Dp(nameof(CanEditLoop), true);
-    public bool CanEditLoop { get => (bool)GetValue(CanEditLoopProperty); set => SetValue(CanEditLoopProperty, value); }
-
     public static readonly DependencyProperty ShowLoopProperty = Dp(nameof(ShowLoop), true);
     public bool ShowLoop { get => (bool)GetValue(ShowLoopProperty); set => SetValue(ShowLoopProperty, value); }
 
@@ -258,7 +254,7 @@ public sealed class WaveformView : FrameworkElement
 
     private LoopMarker? MarkerAt(Point p, bool flagsOnly = false)
     {
-        if (!ShowLoop || !CanEditLoop || Waveform is null) return null;
+        if (!ShowLoop || Waveform is null) return null;
         var area = WaveArea;
         double xs = XOf(LoopStart), xe = XOf(LoopEnd);
         if (HandleRect(xe, true, area).Contains(p)) return LoopMarker.End;
