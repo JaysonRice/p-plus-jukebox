@@ -24,6 +24,10 @@ public abstract class LibraryRow : ObservableObject
     public virtual string LengthText => "";
     public virtual string LoopText => "";
     public virtual string UsedByText => "";
+    /// <summary>How many builds use the song (the "Builds" column); empty for series header rows.</summary>
+    public virtual string BuildCountText => "";
+    /// <summary>Hover text for the build count: which builds.</summary>
+    public virtual string BuildsTooltip => "";
     public virtual string AddedText => "";
 }
 
@@ -79,6 +83,10 @@ public sealed partial class LibrarySongItem : LibraryRow
     public override string Series => Group.DisplayName;
     public override string AddedText => Added.ToString("d");
     public override string UsedByText => UsedBy.Count == 0 ? "Not used by any build" : "Used by " + string.Join(", ", UsedBy);
+    public override string BuildCountText => UsedBy.Count.ToString();
+    public override string BuildsTooltip => UsedBy.Count == 0
+        ? "Not used by any build"
+        : (UsedBy.Count == 1 ? "Used by 1 build:" : $"Used by {UsedBy.Count} builds:") + string.Concat(UsedBy.Select(b => "\n• " + b));
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LengthText), nameof(LoopText))]
@@ -102,7 +110,15 @@ public sealed partial class LibraryViewModel : ObservableObject
         public override string ToString() => Label;
     }
 
-    public sealed record SortOption(string Label, Comparison<LibrarySongItem> Compare)
+    /// <summary>
+    /// One thing to sort by. <paramref name="Compare"/> is the ascending order (A to Z, shortest first, oldest first, fewest
+    /// first); the direction is chosen separately and flips when the column header is clicked.
+    /// <paramref name="DefaultDescending"/>: the direction people usually want first (longest, newest, most builds).
+    /// <paramref name="Unknown"/>: songs without a value (a length not read yet) always go last, either direction.
+    /// <paramref name="ColumnHeader"/>: the table column this sort belongs to.
+    /// </summary>
+    public sealed record SortOption(string Label, string ColumnHeader, Comparison<LibrarySongItem> Compare, bool DefaultDescending = false,
+                                    Func<LibrarySongItem, bool>? Unknown = null)
     {
         public override string ToString() => Label;
     }
@@ -170,18 +186,33 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     public IReadOnlyList<SortOption> SortOptions { get; } =
     [
-        new("Name (A to Z)", (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)),
-        new("Longest first", (a, b) => Nullable.Compare(b.Length, a.Length)),
-        new("Shortest first", (a, b) => CompareShortest(a.Length, b.Length)),
-        new("Recently added", (a, b) => b.Added.CompareTo(a.Added)),
-        new("Used by the most builds", (a, b) => b.UsedBy.Count.CompareTo(a.UsedBy.Count)),
+        new("Name", "Song", (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)),
+        new("Length", "Length", (a, b) => Nullable.Compare(a.Length, b.Length), DefaultDescending: true, Unknown: s => s.Length is null),
+        new("Date added", "Added", (a, b) => a.Added.CompareTo(b.Added), DefaultDescending: true),
+        new("Build count", "Build count", (a, b) => a.UsedBy.Count.CompareTo(b.UsedBy.Count), DefaultDescending: true),
     ];
 
-    private static int CompareShortest(TimeSpan? a, TimeSpan? b) =>
-        (a, b) switch { (null, null) => 0, (null, _) => 1, (_, null) => -1, _ => a.Value.CompareTo(b.Value) }; // unknown lengths last
-
     [ObservableProperty] private SortOption _sort;
-    partial void OnSortChanged(SortOption value) => RefreshView();
+    partial void OnSortChanged(SortOption value)
+    {
+        _descending = value.DefaultDescending; // a new sort starts in its usual direction
+        OnPropertyChanged(nameof(Descending));
+        RefreshView();
+    }
+
+    /// <summary>Direction of the current sort. Flipped by clicking the column header (see <see cref="SortByColumn"/>).</summary>
+    [ObservableProperty] private bool _descending;
+    partial void OnDescendingChanged(bool value) => RefreshView();
+
+    /// <summary>A column header was clicked: flip the direction if it's the current sort, else sort by it. False if it isn't sortable.</summary>
+    public bool SortByColumn(string header)
+    {
+        var option = SortOptions.FirstOrDefault(o => o.ColumnHeader == header);
+        if (option is null) return false;
+        if (option == Sort) Descending = !Descending;
+        else Sort = option;
+        return true;
+    }
 
     [ObservableProperty] private bool _groupBySeries = true;
     partial void OnGroupBySeriesChanged(bool value) => RefreshView();
@@ -200,7 +231,10 @@ public sealed partial class LibraryViewModel : ObservableObject
                 if (a.IsHeader != b.IsHeader) return a.IsHeader ? -1 : 1;
             }
             if (a is not LibrarySongItem sa || b is not LibrarySongItem sb) return 0;
-            int c = vm.Sort.Compare(sa, sb);
+            var sort = vm.Sort;
+            if (sort.Unknown is { } unknown && unknown(sa) != unknown(sb)) return unknown(sa) ? 1 : -1; // no value: last, either way
+            int c = sort.Compare(sa, sb);
+            if (vm.Descending) c = -c;
             return c != 0 ? c : string.Compare(sa.SongPath, sb.SongPath, StringComparison.OrdinalIgnoreCase);
         }
     }
@@ -321,7 +355,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     // ---- selection, playback, delete ----
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DeleteCommand), nameof(PlayCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteCommand), nameof(PlayCommand), nameof(AddToStageCommand))]
     [NotifyPropertyChangedFor(nameof(SelectedDetails))]
     private LibraryRow? _selected;
 
@@ -334,6 +368,15 @@ public sealed partial class LibraryViewModel : ObservableObject
         $"{s.Name} ({s.Series}). {(s.Info is { } i ? $"{s.LengthText}, {(i.ChannelCount == 1 ? "mono" : "stereo")}, {s.LoopText.ToLowerInvariant()}. " : "")}{s.UsedByText}.";
 
     private bool HasSong => SelectedSong is not null;
+
+    /// <summary>Set by the main window: "Add to a stage…" hands it the selected song (path and display name).</summary>
+    public Action<string, string>? AddToStageRequested { get; set; }
+
+    [RelayCommand(CanExecute = nameof(HasSong))]
+    private void AddToStage()
+    {
+        if (SelectedSong is { } s) AddToStageRequested?.Invoke(s.SongPath, s.Name);
+    }
 
     [RelayCommand(CanExecute = nameof(HasSong))]
     private void Play() => Preview.TogglePlay(); // Space / double-click: play or pause in the player strip

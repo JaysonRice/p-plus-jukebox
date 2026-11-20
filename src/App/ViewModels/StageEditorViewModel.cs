@@ -95,10 +95,25 @@ public sealed partial class StageEditorViewModel : ObservableObject
     {
         var window = new LibraryWindow(new LibraryViewModel(_main.Library, _main.Player, pickForStage: Session.DisplayName)) { Owner = Owner };
         if (window.ShowDialog() != true) return;
-        var picked = window.PickedSongs;
-        if (picked.Count == 0) return;
+        AddLibrarySongs(window.PickedSongs);
+    }
+
+    /// <summary>
+    /// Adds songs that are already in the library to this stage (unsaved until Save). Songs the stage already has are
+    /// skipped and reported. Used by "Add from your library" and by "Add to a stage" in the Song library tab.
+    /// </summary>
+    public void AddLibrarySongs(IReadOnlyList<string> songPaths)
+    {
+        var have = Session.Tracklist.Entries.Select(e => e.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var fresh = songPaths.Where(p => !have.Contains(p)).ToList();
+        if (fresh.Count < songPaths.Count)
+            Dialogs.Info(Owner, fresh.Count == 0
+                ? $"{(songPaths.Count == 1 ? "That song is" : "Those songs are")} already on {StageTitle}."
+                : $"{songPaths.Count - fresh.Count} of the songs {(songPaths.Count - fresh.Count == 1 ? "was" : "were")} already on {StageTitle} and {(songPaths.Count - fresh.Count == 1 ? "wasn't" : "weren't")} added again.");
+        if (fresh.Count == 0) return;
         History.BeforeChange();
-        foreach (var path in picked) Session.AddExistingSong(path);
+        try { foreach (var path in fresh) Session.AddExistingSong(path); }
+        catch (MusicLibraryException ex) { Dialogs.Error(Owner, ex.Message); }
         Rebuild(Session.Tracklist.Entries.Count - 1);
     }
 

@@ -14,8 +14,9 @@
                 <TextBlock Text="Show:" VerticalAlignment="Center" Margin="0,0,6,0" />
                 <ComboBox ItemsSource="{Binding UsageOptions}" SelectedItem="{Binding Usage}" DisplayMemberPath="Label" MinWidth="190" Margin="0,0,12,0"
                           AutomationProperties.Name="Show songs" />
-                <TextBlock Text="Sort:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort}" DisplayMemberPath="Label" MinWidth="170" Margin="0,0,12,0"
+                <TextBlock Text="Sort by:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort}" DisplayMemberPath="Label" MinWidth="140" Margin="0,0,12,0"
+                          ToolTip="Click a column heading in the table to flip the order (A to Z / Z to A, shortest / longest...)"
                           AutomationProperties.Name="Sort songs" />
                 <CheckBox Content="Group by series" IsChecked="{Binding GroupBySeries}" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <StackPanel Orientation="Horizontal" Visibility="{Binding GroupBySeries, Converter={StaticResource BoolToVis}}">
@@ -69,6 +70,9 @@
         <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
             <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Hint}" VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal">
+                <Button Content="Add to a stage…" Command="{Binding AddToStageCommand}" Style="{StaticResource ToolButton}" FontWeight="SemiBold"
+                        Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
+                        ToolTip="Choose a stage in the current build to add the selected song to" />
                 <Button Content="Delete song…" Command="{Binding DeleteCommand}" Style="{StaticResource ToolButton}"
                         Visibility="{Binding IsPicking, Converter={StaticResource InverseBoolToVis}}"
                         ToolTip="Only songs no build uses can be deleted" />
@@ -80,7 +84,7 @@
         <!-- One flat list: series header rows + song rows (fast: only visible rows are built). Click a header to collapse it. -->
         <DataGrid x:Name="SongGrid" ItemsSource="{Binding RowsView}" SelectedItem="{Binding Selected}"
                   AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="None"
-                  CanUserReorderColumns="False" CanUserSortColumns="False"
+                  CanUserReorderColumns="False" CanUserSortColumns="True" Sorting="SongGrid_Sorting"
                   VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.VirtualizationMode="Recycling"
                   MouseDoubleClick="SongGrid_DoubleClick" PreviewKeyDown="SongGrid_PreviewKeyDown"
                   PreviewMouseLeftButtonUp="SongGrid_PreviewMouseLeftButtonUp"
@@ -113,10 +117,19 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn x:Name="SeriesColumn" Header="Series" Binding="{Binding Series}" Width="1.5*" />
+                <DataGridTextColumn x:Name="SeriesColumn" Header="Series" Binding="{Binding Series}" Width="1.5*" CanUserSort="False" />
                 <DataGridTextColumn Header="Length" Binding="{Binding LengthText}" Width="70" />
-                <DataGridTextColumn Header="Loop" Binding="{Binding LoopText}" Width="85" />
-                <DataGridTextColumn Header="Used by" Binding="{Binding UsedByText}" Width="2*" />
+                <DataGridTextColumn Header="Loop" Binding="{Binding LoopText}" Width="85" CanUserSort="False" />
+                <!-- How many builds use the song; hover to see which -->
+                <DataGridTextColumn Header="Build count" Binding="{Binding BuildCountText}" Width="100">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextAlignment" Value="Center" />
+                            <Setter Property="ToolTip" Value="{Binding BuildsTooltip}" />
+                            <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Added" Binding="{Binding AddedText}" Width="95" />
             </DataGrid.Columns>
         </DataGrid>

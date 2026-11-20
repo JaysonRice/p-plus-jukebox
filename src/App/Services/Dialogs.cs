@@ -15,6 +15,12 @@ public static class Dialogs
     public static bool Confirm(Window? owner, string message) =>
         Show(owner, message, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK;
 
+    /// <summary>A warning before something that can't be undone. The safe choice (Cancel) is the default. True = go ahead.</summary>
+    public static bool ConfirmDelete(Window? owner, string message) =>
+        (owner is null
+            ? MessageBox.Show(message, AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+            : MessageBox.Show(owner, message, AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)) == MessageBoxResult.Yes;
+
     /// <summary>Yes = save, No = discard, Cancel = stay.</summary>
     public static MessageBoxResult AskSave(Window? owner, string what) =>
         Show(owner, $"Save your changes to {what}?", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);

@@ -16,25 +16,41 @@
         <!-- Top: build picker and the big actions -->
         <Border DockPanel.Dock="Top" Padding="12,10" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button Content="Put on my Project+…" Command="{Binding SyncCommand}" Style="{StaticResource ToolButton}" FontWeight="SemiBold"
-                            ToolTip="Copy this build's music to your SD card or Project+ folder" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Build:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" />
+                <!-- Put the build on the SD card / Project+ folder: an icon, explained when hovered -->
+                <Button DockPanel.Dock="Right" Command="{Binding SyncCommand}" Width="44" Height="40" VerticalAlignment="Center"
+                        AutomationProperties.Name="Put on my Project+" ToolTipService.InitialShowDelay="200" ToolTipService.ShowDuration="20000">
+                    <TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="20" />
+                    <Button.ToolTip>
+                        <StackPanel MaxWidth="320">
+                            <TextBlock Text="Put this build on my Project+" FontWeight="SemiBold" Margin="0,0,0,4" />
+                            <TextBlock TextWrapping="Wrap"
+                                       Text="Copies this build's music to your SD card or Project+ folder. You'll see a summary of what will change first, and nothing is written until you confirm." />
+                        </StackPanel>
+                    </Button.ToolTip>
+                </Button>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Menu VerticalAlignment="Center" Margin="0,0,16,0" Background="Transparent">
+                        <MenuItem Header="_Builds" AutomationProperties.Name="Builds menu">
+                            <MenuItem Header="_New build…" Command="{Binding NewBuildCommand}"
+                                      ToolTip="Make a new build as a copy of the current one" />
+                            <MenuItem Header="_Rename build…" Command="{Binding RenameBuildCommand}" />
+                            <MenuItem Header="_Delete build…" Command="{Binding DeleteBuildCommand}"
+                                      ToolTip="Deletes the current build's stage song lists. The Default build can't be deleted." />
+                            <Separator />
+                            <MenuItem Header="_Import a music folder…" Command="{Binding ImportMusicFolderCommand}"
+                                      ToolTip="Turn a folder with strm and tracklist inside (for example from someone's build) into a new build" />
+                        </MenuItem>
+                    </Menu>
+                    <TextBlock Text="Current build:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" />
                     <ComboBox ItemsSource="{Binding Builds}" SelectedItem="{Binding SelectedBuild}" DisplayMemberPath="Name"
-                              MinWidth="200" Margin="0,0,8,0" ToolTip="A build is a full set of stage music. Switch between them any time." />
-                    <Button Content="New…" Command="{Binding NewBuildCommand}" Style="{StaticResource ToolButton}" ToolTip="Make a new build as a copy of this one" />
-                    <Button Content="Rename…" Command="{Binding RenameBuildCommand}" Style="{StaticResource ToolButton}" />
-                    <Button Content="Delete" Command="{Binding DeleteBuildCommand}" Style="{StaticResource ToolButton}" ToolTip="The Default build can't be deleted" />
-                    <Button Content="Import a music folder…" Command="{Binding ImportMusicFolderCommand}" Style="{StaticResource ToolButton}"
-                            ToolTip="Turn a folder with strm and tracklist inside (for example from someone's build) into a new build" />
+                              MinWidth="220" ToolTip="A build is a full set of stage music. Switch between them any time." />
                 </StackPanel>
             </DockPanel>
         </Border>
 
         <!-- Bottom: where the library is, and what's playing -->
-        <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
+        <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}"
+                Visibility="{Binding ShowFooter, Converter={StaticResource BoolToVis}}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
                             Visibility="{Binding Player.NowPlaying, Converter={StaticResource NotNullToVis}}">
@@ -56,8 +72,7 @@
                     <Button Content="Stop" Command="{Binding StopPlaybackCommand}" Padding="10,2" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding LibraryNotice}" VerticalAlignment="Center" Style="{StaticResource Hint}" Margin="0,0,8,0" />
-                    <Button Content="Show in Explorer" Command="{Binding ShowLibraryInExplorerCommand}" Padding="8,2" />
+                    <TextBlock Text="{Binding LibraryNotice}" VerticalAlignment="Center" Style="{StaticResource Hint}" />
                 </StackPanel>
             </DockPanel>
         </Border>

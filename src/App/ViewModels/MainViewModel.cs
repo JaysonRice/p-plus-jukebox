@@ -19,9 +19,14 @@ public sealed partial class MainViewModel : ObservableObject
     public MainViewModel(AppLibrary library, bool libraryInFallbackLocation)
     {
         Library = library;
+        // Only worth a line on screen when the library isn't where people would expect it (next to the app).
         LibraryNotice = libraryInFallbackLocation
             ? $"Your songs are kept in {library.Root} (the app's own folder can't be written to)."
-            : $"Your songs are kept in {library.Root}";
+            : "";
+        Player.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PreviewPlayer.NowPlaying)) OnPropertyChanged(nameof(ShowFooter));
+        };
         StagesView = CollectionViewSource.GetDefaultView(Stages);
         StagesView.Filter = o => o is StageCardViewModel s &&
             (string.IsNullOrWhiteSpace(SearchText) || s.DisplayName.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -31,6 +36,8 @@ public sealed partial class MainViewModel : ObservableObject
     public AppLibrary Library { get; }
     public PreviewPlayer Player { get; } = new();
     public string LibraryNotice { get; }
+    /// <summary>The bottom bar is only there when it has something to say: a library location warning, or what's playing.</summary>
+    public bool ShowFooter => LibraryNotice.Length > 0 || Player.NowPlaying is not null;
     private static Window? Owner => Application.Current?.MainWindow;
 
     public ObservableCollection<Build> Builds { get; } = [];
@@ -184,7 +191,8 @@ public sealed partial class MainViewModel : ObservableObject
     private void DeleteBuild()
     {
         if (SelectedBuild is not { IsDefault: false } build) return;
-        if (!Dialogs.Confirm(Owner, $"Delete the build \"{build.Name}\"?\n\nIts stage song lists are deleted. The songs themselves stay in your library.")) return;
+        if (!Dialogs.ConfirmDelete(Owner,
+            $"Delete the build \"{build.Name}\"?\n\nAll of this build's stage song lists will be deleted, including any unsaved changes. This can't be undone.\n\nYour songs are not deleted: they stay in your library.")) return;
         Editor = null; // its unsaved changes go with it
         Library.DeleteBuild(build);
         ReloadBuilds(Library.DefaultBuild.Id);
@@ -222,7 +230,23 @@ public sealed partial class MainViewModel : ObservableObject
 
     private LibraryViewModel? _libraryTab;
     /// <summary>The "Song library" tab (made on first use).</summary>
-    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null);
+    public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null) { AddToStageRequested = AddSongToStage };
+
+    /// <summary>
+    /// "Add to a stage…" in the Song library: pick one of the current build's stages, then go to the Stages tab with that
+    /// stage open and the song added (unsaved, so it can still be undone or reordered).
+    /// </summary>
+    private void AddSongToStage(string songPath, string songName)
+    {
+        if (SelectedBuild is null || Stages.Count == 0) return;
+        var picker = new StagePickerWindow(songName, Stages.ToList(), SelectedStage) { Owner = Owner };
+        if (picker.ShowDialog() != true || picker.Chosen is not { } stage) return;
+
+        SelectedStage = stage; // if another stage has unsaved changes, this asks about them first
+        if (SelectedStage != stage) return; // they chose to stay where they were
+        SelectedTab = StagesTabIndex;
+        Editor?.AddLibrarySongs([songPath]);
+    }
 
     private LoopMakerViewModel? _loopMaker;
     /// <summary>The "Loop Maker" tab: make a looping song straight into the library.</summary>
@@ -238,9 +262,6 @@ public sealed partial class MainViewModel : ObservableObject
         if (value == LibraryTabIndex) LibraryTab.Reload();   // builds or Loop Maker may have changed it since it was last shown
         else if (value == StagesTabIndex) Editor?.AfterRowEdit(); // a song may have been deleted there; re-check the stage
     }
-
-    [RelayCommand]
-    private void ShowLibraryInExplorer() => Dialogs.ShowInExplorer(Library.Root);
 
     [RelayCommand]
     private void StopPlayback() => Player.Stop();

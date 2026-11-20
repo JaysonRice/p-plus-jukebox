@@ -17,7 +17,7 @@ public partial class LibraryView : UserControl
         {
             SongGrid.SelectionMode = Vm?.IsPicking == true ? DataGridSelectionMode.Extended : DataGridSelectionMode.Single;
             if (e.OldValue is LibraryViewModel old) old.PropertyChanged -= OnVmChanged;
-            if (Vm is { } vm) { vm.PropertyChanged += OnVmChanged; UpdateSeriesColumn(); }
+            if (Vm is { } vm) { vm.PropertyChanged += OnVmChanged; UpdateSeriesColumn(); UpdateSortArrow(); }
         };
     }
 
@@ -26,6 +26,24 @@ public partial class LibraryView : UserControl
     private void OnVmChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(LibraryViewModel.GroupBySeries)) UpdateSeriesColumn();
+        if (e.PropertyName is nameof(LibraryViewModel.Sort) or nameof(LibraryViewModel.Descending)) UpdateSortArrow();
+    }
+
+    /// <summary>A column heading was clicked: the view model flips the direction or switches to that column. (We sort ourselves.)</summary>
+    private void SongGrid_Sorting(object sender, DataGridSortingEventArgs e)
+    {
+        e.Handled = true;
+        Vm?.SortByColumn(e.Column.Header as string ?? "");
+    }
+
+    /// <summary>The arrow in the heading of the column being sorted by.</summary>
+    private void UpdateSortArrow()
+    {
+        if (Vm is not { } vm) return;
+        foreach (var column in SongGrid.Columns)
+            column.SortDirection = column.Header as string == vm.Sort.ColumnHeader
+                ? (vm.Descending ? System.ComponentModel.ListSortDirection.Descending : System.ComponentModel.ListSortDirection.Ascending)
+                : null;
     }
 
     /// <summary>Header rows already name the series, so the column only shows when not grouping.</summary>
