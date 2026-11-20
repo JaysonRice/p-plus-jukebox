@@ -95,7 +95,8 @@ public sealed partial class MainViewModel : ObservableObject
         Stages.Clear();
         if (SelectedBuild is null) return;
         foreach (var info in SelectedBuild.Stages()) Stages.Add(new StageCardViewModel(SelectedBuild, info));
-        _selectedStage = Stages.FirstOrDefault(s => s.Name == keep);
+        // Keep the stage that was open; otherwise open the first one, so there's always something to look at on arrival.
+        _selectedStage = Stages.FirstOrDefault(s => s.Name == keep) ?? Stages.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedStage));
         if (_selectedStage is not null) OpenEditor();
     }
