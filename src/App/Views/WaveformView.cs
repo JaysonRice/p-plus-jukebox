@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using PPlusTracklistEditor.App.Services;
 using PPlusTracklistEditor.Core.Audio;
 
 namespace PPlusTracklistEditor.App.Views;
@@ -31,9 +32,12 @@ public sealed class WaveformView : FrameworkElement
     private const double RulerHeight = 18;
     private const double HandleWidth = 64, HandleHeight = 18;
     private const double GrabDistance = 7;
-    private static readonly Brush StartBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x2E, 0xA0, 0x43)));
-    private static readonly Brush EndBrush = Frozen(new SolidColorBrush(Color.FromRgb(0xE0, 0x55, 0x3D)));
-    private static readonly Brush PlayheadBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x2F, 0x80, 0xED)));
+    // Colors come from the current theme (ThemeService); the second argument is only a fallback.
+    private Brush StartBrush => ThemeService.Brush(this, "LagoonAttentionBrush", Brushes.SteelBlue);
+    private Brush EndBrush => ThemeService.Brush(this, "LagoonEndBrush", Brushes.IndianRed);
+    private Brush PlayheadBrush => ThemeService.Brush(this, "LagoonPlaybackBrush", Brushes.Teal);
+    private Brush OnStartBrush => ThemeService.Brush(this, "LagoonOnAttentionBrush", Brushes.White);
+    private Brush OnEndBrush => ThemeService.Brush(this, "LagoonOnEndBrush", Brushes.White);
     // Before the loop start: the intro, which plays once (light). After the loop end: never plays (dark).
     private static readonly Brush IntroBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x26, 0x80, 0x80, 0x80)));
     private static readonly Brush CutBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x80, 0x80, 0x80, 0x80)));
@@ -52,7 +56,12 @@ public sealed class WaveformView : FrameworkElement
         ClipToBounds = true;
         Cursor = Cursors.Arrow;
         SnapsToDevicePixels = true;
+        // Repaint when light/dark changes (the colors are looked up each time it draws).
+        Loaded += (_, _) => ThemeService.Changed += Repaint;
+        Unloaded += (_, _) => ThemeService.Changed -= Repaint;
     }
+
+    private void Repaint() => Dispatcher.BeginInvoke(InvalidateVisual, System.Windows.Threading.DispatcherPriority.Background);
 
     // ---- properties ----
 
@@ -148,8 +157,8 @@ public sealed class WaveformView : FrameworkElement
             double xs = XOf(LoopStart), xe = XOf(LoopEnd);
             if (xs > 0) dc.DrawRectangle(IntroBrush, null, new Rect(0, area.Top, Math.Min(w, xs), area.Height));
             if (xe < w) dc.DrawRectangle(CutBrush, null, new Rect(Math.Max(0, xe), area.Top, w - Math.Max(0, xe), area.Height));
-            DrawMarker(dc, xs, StartBrush, "Loop start", alignRight: false, area);
-            DrawMarker(dc, xe, EndBrush, "Loop end", alignRight: true, area);
+            DrawMarker(dc, xs, StartBrush, OnStartBrush, "Loop start", alignRight: false, area);
+            DrawMarker(dc, xe, EndBrush, OnEndBrush, "Loop end", alignRight: true, area);
         }
 
         if (Playhead >= 0)
@@ -235,14 +244,14 @@ public sealed class WaveformView : FrameworkElement
         return s;
     }
 
-    private void DrawMarker(DrawingContext dc, double x, Brush brush, string label, bool alignRight, Rect area)
+    private void DrawMarker(DrawingContext dc, double x, Brush brush, Brush textBrush, string label, bool alignRight, Rect area)
     {
         if (x < -HandleWidth || x > ActualWidth + HandleWidth) return;
         dc.DrawLine(new Pen(brush, 2), new Point(x, area.Top), new Point(x, area.Bottom));
         var handle = HandleRect(x, alignRight, area);
         dc.DrawRectangle(brush, null, handle);
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        var text = new FormattedText(label, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 11, Brushes.White, dpi);
+        var text = new FormattedText(label, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 11, textBrush, dpi);
         dc.DrawText(text, new Point(handle.Left + (handle.Width - text.Width) / 2, handle.Top + (handle.Height - text.Height) / 2));
     }
 

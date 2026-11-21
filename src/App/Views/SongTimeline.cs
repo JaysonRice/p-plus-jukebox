@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Input;
 using System.Windows.Media;
+using PPlusTracklistEditor.App.Services;
 
 namespace PPlusTracklistEditor.App.Views;
 
@@ -13,11 +14,12 @@ namespace PPlusTracklistEditor.App.Views;
 public sealed class SongTimeline : FrameworkElement
 {
     private const double BarHeight = 8, DotRadius = 7;
-    private static readonly Brush IntroBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x70, 0x2F, 0x80, 0xED)));
-    private static readonly Brush LoopBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x2F, 0x80, 0xED)));
+    // Colors come from the current theme (ThemeService); the second argument is only a fallback.
+    private Brush LoopBrush => ThemeService.Brush(this, "LagoonPlaybackBrush", Brushes.Teal);
+    private Brush IntroBrush => LoopBrush is SolidColorBrush b ? new SolidColorBrush(Color.FromArgb(0x70, b.Color.R, b.Color.G, b.Color.B)) : LoopBrush;
+    private Brush StartBrush => ThemeService.Brush(this, "LagoonAttentionBrush", Brushes.SteelBlue);
+    private Brush DotBrush => LoopBrush;
     private static readonly Brush CutBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x60, 0x80, 0x80, 0x80)));
-    private static readonly Brush StartBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x2E, 0xA0, 0x43)));
-    private static readonly Brush DotBrush = Frozen(new SolidColorBrush(Color.FromRgb(0x1F, 0x5F, 0xC0)));
     private bool _dragging;
 
     public SongTimeline()
@@ -25,7 +27,11 @@ public sealed class SongTimeline : FrameworkElement
         Focusable = false;
         Cursor = Cursors.Hand;
         MinHeight = 2 * DotRadius + 4;
+        Loaded += (_, _) => ThemeService.Changed += Repaint; // colors are looked up each time it draws
+        Unloaded += (_, _) => ThemeService.Changed -= Repaint;
     }
+
+    private void Repaint() => Dispatcher.BeginInvoke(InvalidateVisual, System.Windows.Threading.DispatcherPriority.Background);
 
     public static readonly DependencyProperty LengthProperty = Dp(nameof(Length), 0);
     public int Length { get => (int)GetValue(LengthProperty); set => SetValue(LengthProperty, value); }
@@ -75,7 +81,7 @@ public sealed class SongTimeline : FrameworkElement
         else Segment(dc, Left, Left + Width_, top, LoopBrush);
 
         double x = XOf(Playhead);
-        dc.DrawEllipse(DotBrush, new Pen(Brushes.White, 2), new Point(x, mid), DotRadius, DotRadius);
+        dc.DrawEllipse(DotBrush, new Pen(ThemeService.Brush(this, "LagoonSurfaceBrush", Brushes.White), 2), new Point(x, mid), DotRadius, DotRadius);
     }
 
     private static void Segment(DrawingContext dc, double from, double to, double top, Brush brush)

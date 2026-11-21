@@ -1,4 +1,4 @@
-<Window x:Class="PPlusTracklistEditor.App.Views.MainWindow"
+<Window x:Class="PPlusTracklistEditor.App.Views.MainWindow" Background="{DynamicResource LagoonWindowBrush}"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:PPlusTracklistEditor.App.ViewModels"
@@ -127,6 +127,7 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{Binding StageTitle}" Style="{StaticResource Heading}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="  • unsaved changes" VerticalAlignment="Bottom" Margin="0,0,0,3" Style="{StaticResource Hint}"
+                                   Foreground="{DynamicResource LagoonAttentionBrush}" Opacity="1" FontWeight="SemiBold"
                                    Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </DockPanel>
