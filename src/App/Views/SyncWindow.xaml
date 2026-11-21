@@ -1,12 +1,12 @@
 <Window x:Class="PPlusTracklistEditor.App.Views.SyncWindow" Background="{DynamicResource LagoonWindowBrush}"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Put music on your Project+" Width="620" SizeToContent="Height" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+        Title="Sync to your Project+" Width="620" SizeToContent="Height" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
     <StackPanel Margin="24">
         <TextBlock Text="{Binding Heading}" Style="{StaticResource Heading}" Margin="0,0,0,8" />
         <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,14">
-            Choose the Project+ folder to put this build's music on: your SD card, or any Project+ folder on your computer.
-            Only the music is changed. Songs that no stage uses anymore are removed from there, but they stay in your library.
+            Choose the Project+ folder to put this build on: your SD card, or any Project+ folder on your computer.
+            Sync updates its music, stage lists and preset names. Songs that no stage uses anymore are removed from there, but they stay in your library.
         </TextBlock>
         <DockPanel Margin="0,0,0,6">
             <Button DockPanel.Dock="Right" Content="Browse…" Click="Browse_Click" Padding="14,4" Margin="8,0,0,0" IsEnabled="{Binding IsIdle}" />
@@ -23,7 +23,7 @@
                      Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Close" IsCancel="True" Padding="16,4" Margin="0,0,8,0" IsEnabled="{Binding IsIdle}" />
-            <Button Content="Put music on it" Command="{Binding SyncCommand}" IsDefault="True" Padding="20,4" FontWeight="SemiBold" />
+            <Button Content="Sync" Command="{Binding SyncCommand}" IsDefault="True" Padding="20,4" FontWeight="SemiBold" />
         </StackPanel>
     </StackPanel>
 </Window>

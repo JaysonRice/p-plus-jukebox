@@ -304,7 +304,7 @@ public sealed partial class StageListsViewModel : ObservableObject
 
     public string RenameHint => CanRename
         ? "Rename this preset. The game shows the new name the next time you put this build on your Project+."
-        : "Preset names can't be changed: your Project+ folder's menu file (pf\\menu2\\mu_menumain.pac) couldn't be read.";
+        : "Preset names can't be changed: your Project+ folder's menu files (pf\\menu2) couldn't be read.";
 
     [RelayCommand]
     private void Rename()

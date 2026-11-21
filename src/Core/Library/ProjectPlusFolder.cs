@@ -1,8 +1,8 @@
 namespace PPlusTracklistEditor.Core.Library;
 
 /// <summary>
-/// The user's "Project+" folder (on an SD card, or any copy of a build). The app only ever reads/writes its
-/// <c>pf\sound</c> folder (<c>tracklist\</c> + <c>strm\</c>).
+/// The user's "Project+" folder (on an SD card, or any copy of a build). The app only writes its music
+/// (<c>pf\sound</c>), stage list presets (<c>pf\stage\switch</c>) and the preset names in two menu files (<c>pf\menu2</c>).
 /// </summary>
 public sealed class ProjectPlusFolder
 {
@@ -16,14 +16,24 @@ public sealed class ProjectPlusFolder
     public string StageListPath(int preset) => Path.Combine(StageListDir, $"Switch{preset:00}.rss");
     /// <summary>"01 - Battlefield" lines naming each stage slot.</summary>
     public string StageSlotNamesFile => Path.Combine(Root, "pf", "stage", "stageslot", "Stageslot IDs.txt");
-    /// <summary>The main menu file; it holds the stage list preset names.</summary>
-    public string MenuFile => Path.Combine(Root, "pf", "menu2", "mu_menumain.pac");
+    /// <summary>
+    /// The menu files holding the stage list preset names, each with its own copy of the list. The game shows the one
+    /// in <c>sc_selcharacter2.pac</c> on Random (L/R); <c>mu_menumain.pac</c> has the main menu's copy. Both are
+    /// renamed so they always agree.
+    /// </summary>
+    public static IReadOnlyList<string> MenuFileNames { get; } = ["sc_selcharacter2.pac", "mu_menumain.pac"];
 
-    /// <summary>The preset names in this folder's menu file, or null if it's missing or not laid out as expected.</summary>
+    public string MenuFilePath(string fileName) => Path.Combine(Root, "pf", "menu2", fileName);
+
+    /// <summary>The preset names in this folder's menu files (the first readable one), or null if none can be read.</summary>
     public IReadOnlyList<string>? ReadPresetNames()
     {
-        try { return File.Exists(MenuFile) ? Menu.PresetNames.Read(MenuFile) : null; }
-        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException) { return null; }
+        foreach (string file in MenuFileNames)
+        {
+            try { if (File.Exists(MenuFilePath(file))) return Menu.PresetNames.Read(MenuFilePath(file)); }
+            catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException) { }
+        }
+        return null;
     }
 
     private ProjectPlusFolder(string root) => Root = Path.GetFullPath(root);

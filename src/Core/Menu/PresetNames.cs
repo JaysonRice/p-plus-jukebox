@@ -2,7 +2,8 @@ namespace PPlusTracklistEditor.Core.Menu;
 
 /// <summary>
 /// The stage list preset names the game shows on Random (L/R to switch). Project+ keeps them as the first 8 strings of
-/// a message table in <c>pf/menu2/mu_menumain.pac</c>: an LZ11-compressed ARC, with the table inside a nested ARC
+/// a message table, in two files with the same layout: <c>pf/menu2/sc_selcharacter2.pac</c> (the copy shown on Random)
+/// and <c>pf/menu2/mu_menumain.pac</c>. Each is an LZ11-compressed ARC, with the table inside a nested ARC
 /// ("MenuRule_en"). The stage names follow in the same table.
 ///
 /// Renaming changes those 8 strings only. The result is checked before it's handed back: it must decompress to exactly

@@ -81,28 +81,38 @@ public class PresetNameTests(ITestOutputHelper output)
     public void Library_ReadsNames_AndSyncRenamesWithABackup()
     {
         if (!File.Exists(MenuFile)) { output.WriteLine("Skipped: no menu file"); return; }
+        string selMenu = Path.Combine(Path.GetDirectoryName(MenuFile)!, "sc_selcharacter2.pac");
+        if (!File.Exists(selMenu)) { output.WriteLine("Skipped: no sc_selcharacter2.pac"); return; }
         using var t = new TempSetup();
         t.StockProjectPlus();
-        string cardMenu = Path.Combine(t.ProjectPlusRoot, "pf", "menu2", "mu_menumain.pac");
-        Directory.CreateDirectory(Path.GetDirectoryName(cardMenu)!);
-        File.Copy(MenuFile, cardMenu);                                                    // a copy: the real file is only read
-        byte[] originalMenu = File.ReadAllBytes(cardMenu);
+        string cardMain = t.ProjectPlus.MenuFilePath("mu_menumain.pac"), cardSel = t.ProjectPlus.MenuFilePath("sc_selcharacter2.pac");
+        Directory.CreateDirectory(Path.GetDirectoryName(cardMain)!);
+        File.Copy(MenuFile, cardMain);                                                    // copies: the real files are only read
+        File.Copy(selMenu, cardSel);
+        byte[] originalMain = File.ReadAllBytes(cardMain), originalSel = File.ReadAllBytes(cardSel);
         var lib = t.CreateLibrary();
         var moist = lib.NewBuild("Moist");
         Assert.Equal("PMBR", moist.PresetNamesOrStock[1]);
-        Assert.Null(BuildSync.Plan(moist, t.ProjectPlus).PresetNamesToWrite);    // same as the card: menu left alone
+        Assert.Null(BuildSync.Plan(moist, t.ProjectPlus).PresetNamesToWrite);    // same as the card: menus left alone
 
         moist.RenamePreset(1, "Moist Doubles");
         Assert.Throws<MusicLibraryException>(() => moist.RenamePreset(2, ""));
         Assert.Equal("PMBR", lib.DefaultBuild.PresetNamesOrStock[1]);                     // other builds keep theirs
         var plan = BuildSync.Plan(moist, t.ProjectPlus);
         Assert.NotNull(plan.PresetNamesToWrite);
+        Assert.Equal(ProjectPlusFolder.MenuFileNames, plan.MenuFilesToRename);
         Assert.Contains("preset names", plan.Summary());
 
         BuildSync.Execute(plan);
-        Assert.Equal("Moist Doubles", PresetNames.Read(cardMenu)[1]);
-        Assert.Equal(originalMenu, File.ReadAllBytes(Path.Combine(lib.BackupDir, "menu", "mu_menumain.original.pac")));
+        Assert.Equal("Moist Doubles", PresetNames.Read(cardMain)[1]);
+        Assert.Equal("Moist Doubles", PresetNames.Read(cardSel)[1]);
+        Assert.Equal(originalMain, File.ReadAllBytes(Path.Combine(lib.BackupDir, "menu", "mu_menumain.original.pac")));
+        Assert.Equal(originalSel, File.ReadAllBytes(Path.Combine(lib.BackupDir, "menu", "sc_selcharacter2.original.pac")));
         Assert.False(BuildSync.Plan(moist, t.ProjectPlus).HasChanges);
+
+        // A card where only the main menu was renamed (an older sync): only the other file is written.
+        File.WriteAllBytes(cardSel, originalSel);
+        Assert.Equal(["sc_selcharacter2.pac"], BuildSync.Plan(moist, t.ProjectPlus).MenuFilesToRename);
         Assert.NotNull(BuildSync.Plan(lib.DefaultBuild, t.ProjectPlus).PresetNamesToWrite); // Default puts "PMBR" back
     }
 

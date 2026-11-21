@@ -93,7 +93,7 @@ public sealed partial class SyncViewModel : ObservableObject
             await Task.Run(() => BuildSync.Execute(plan, progress));
             Progress = 1;
             if (RememberFolder && Folder is { } used) Build.Library.SetSyncFolder(used);
-            Summary = $"Done! \"{Build.Name}\" is now on {plan.Target.SoundDir}.\n\nIf it's an SD card, eject it in Windows before taking it out, then put it in your Wii.";
+            Summary = $"Done! \"{Build.Name}\" is now on {plan.Target.Root}.\n\nIf it's an SD card, eject it in Windows before taking it out, then put it in your Wii.";
             IsDone = true;
             Plan = null;
         }
