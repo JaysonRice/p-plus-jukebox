@@ -122,6 +122,11 @@ public sealed partial class StageListsViewModel : ObservableObject
 
     [ObservableProperty] private string _summary = "";
 
+    /// <summary>"Advanced: hazards": shows each stage's hazard box. Off by default, since what hazards do differs per stage.</summary>
+    [ObservableProperty] private bool _showHazards;
+
+    partial void OnShowHazardsChanged(bool value) => RefreshSummary();
+
     private void RefreshSummary()
     {
         if (_file is null) { Summary = ""; return; }
@@ -129,7 +134,7 @@ public sealed partial class StageListsViewModel : ObservableObject
         Summary = on.Count == 0
             ? "No stages are on, so Random has nothing to pick from."
             : $"{(on.Count == 1 ? "1 stage" : $"{on.Count} stages")} on: " +
-              string.Join(", ", on.Select(e => _names.NameOf(e.SlotId) + (_file.HasHazards(e) ? " (hazards on)" : "")));
+              string.Join(", ", on.Select(e => _names.NameOf(e.SlotId) + (ShowHazards && _file.HasHazards(e) ? " (hazards on)" : "")));
     }
 
     [RelayCommand(CanExecute = nameof(IsDirty))]
@@ -217,8 +222,9 @@ public sealed partial class StageListRowViewModel(StageListsViewModel owner, Sta
         set
         {
             if (value == IsOn) return;
-            file.SetOn(entry, value);
+            file.SetOnWithDefaultHazards(entry, value);
             OnPropertyChanged();
+            OnPropertyChanged(nameof(HasHazards));
             owner.OnRowChanged();
         }
     }

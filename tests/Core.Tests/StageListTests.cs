@@ -45,6 +45,20 @@ public class StageListTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void AddingAStage_StartsHazardsOff_ExceptFountainOfDreams()
+    {
+        var file = StageListFile.FromBytes(TempSetup.Rss((1, false, true), (StageListFile.FountainOfDreamsSlot, false, false), (3, true, true)));
+
+        file.SetOnWithDefaultHazards(file.Entries[0], true);
+        file.SetOnWithDefaultHazards(file.Entries[1], true);
+        file.SetOnWithDefaultHazards(file.Entries[2], false);
+
+        Assert.False(file.HasHazards(file.Entries[0]));
+        Assert.True(file.HasHazards(file.Entries[1]));
+        Assert.True(file.HasHazards(file.Entries[2]));   // taking a stage out leaves its setting alone
+    }
+
+    [Fact]
     public void RejectsFilesThatArentStageLists()
     {
         Assert.Throws<StageListFormatException>(() => StageListFile.FromBytes(new byte[799]));

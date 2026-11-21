@@ -83,6 +83,23 @@ public sealed class StageListFile
     public bool HasHazards(StageListEntry e) => GetBit(HazardMasksAt, e);
     public void SetHazards(StageListEntry e, bool on) => SetBit(HazardMasksAt, e, on);
 
+    /// <summary>
+    /// Fountain of Dreams' stage slot. It's the one stage whose hazards (rising and sinking platforms) are normally on:
+    /// stock presets disagree on Dream Land, Green Hill Zone and Smashville, but every one that has Fountain of Dreams
+    /// in its list has its hazards on.
+    /// </summary>
+    public const int FountainOfDreamsSlot = 0x1F;
+
+    /// <summary>The hazard setting a stage gets when it's added to a list: on for Fountain of Dreams only.</summary>
+    public static bool StartsWithHazards(int slotId) => slotId == FountainOfDreamsSlot;
+
+    /// <summary>Puts a stage in or out of the list. Adding it also resets its hazards to the normal setting.</summary>
+    public void SetOnWithDefaultHazards(StageListEntry e, bool on)
+    {
+        SetOn(e, on);
+        if (on) SetHazards(e, StartsWithHazards(e.SlotId));
+    }
+
     /// <summary>The stages in the list (on), in screen order.</summary>
     public IEnumerable<StageListEntry> OnStages => Entries.Where(IsOn);
 

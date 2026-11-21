@@ -45,8 +45,17 @@
                                    Foreground="{DynamicResource LagoonSecondBrush}" Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,8"
-                           Text="Stages that are on are this list's stages: Random picks from them, and pressing X on Random in the game bans all the others. Hazards sets whether that stage starts with hazards on." />
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <CheckBox DockPanel.Dock="Right" Content="Advanced: hazards" IsChecked="{Binding ShowHazards}" Margin="12,0,0,0" VerticalAlignment="Top"
+                              ToolTip="Show whether each stage starts with its hazards on" />
+                    <TextBlock Style="{StaticResource Hint}"
+                               Text="Stages that are on are this list's stages: Random picks from them, and pressing X on Random in the game bans all the others." />
+                </DockPanel>
+                <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="10,7" CornerRadius="5" BorderThickness="1"
+                        BorderBrush="{DynamicResource LagoonSecondBrush}" Visibility="{Binding ShowHazards, Converter={StaticResource BoolToVis}}">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Hazards sets whether a stage starts with its hazards on. What that changes is different on every stage, and many stages have none, so we can't tell you what it does for each one. Stages you add start with hazards off, except Fountain of Dreams." />
+                </Border>
                 <Border DockPanel.Dock="Top" Margin="0,0,0,10" Padding="10,7" CornerRadius="5" BorderThickness="1"
                         BorderBrush="{DynamicResource LagoonRuleBrush}" Background="{DynamicResource LagoonSurfaceBrush}">
                     <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
@@ -86,6 +95,7 @@
                                                     </Border.Style>
                                                     <DockPanel>
                                                         <CheckBox DockPanel.Dock="Right" Content="Hazards" IsChecked="{Binding HasHazards}" FontSize="12" MinWidth="0"
+                                                                  Visibility="{Binding DataContext.ShowHazards, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                                   Margin="8,0,0,0" AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}" />
                                                         <CheckBox IsChecked="{Binding IsOn}" MinWidth="0" AutomationProperties.Name="{Binding Name}">
                                                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
