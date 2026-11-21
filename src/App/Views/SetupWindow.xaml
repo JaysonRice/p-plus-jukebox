@@ -1,4 +1,4 @@
-<Window x:Class="PPlusTracklistEditor.App.Views.SetupWindow"
+<Window x:Class="PPlusTracklistEditor.App.Views.SetupWindow" Background="{DynamicResource LagoonWindowBrush}"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="P+ Tracklist Editor – first time setup" Width="620" SizeToContent="Height"

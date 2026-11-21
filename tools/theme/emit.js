@@ -33,7 +33,7 @@ function xaml(mode, c) {
     ['LagoonAccentBrush', a], ['LagoonOnAccentBrush', up(c.accentInk)], ['LagoonPlaybackBrush', up(c.second)],
     ['LagoonAttentionBrush', up(c.third)], ['LagoonEndBrush', mode === 'light' ? '#C4472F' : '#EF7B66'],
     ['LagoonEmptyBrush', up(c.empty)], ['LagoonMutedBrush', up(c.muted)], ['LagoonRuleBrush', up(c.rule)],
-    ['LagoonSurfaceBrush', up(c.surface)], ['LagoonInkBrush', up(c.ink)], ['LagoonOnPlaybackBrush', on(c.second)], ['LagoonOnAttentionBrush', on(c.third)], ['LagoonOnEndBrush', on(mode === 'light' ? '#C4472F' : '#EF7B66')], ['ApplicationBackgroundBrush', up(c.bg)],
+    ['LagoonSurfaceBrush', up(c.surface)], ['LagoonInkBrush', up(c.ink)], ['LagoonOnPlaybackBrush', on(c.second)], ['LagoonOnAttentionBrush', on(c.third)], ['LagoonOnEndBrush', on(mode === 'light' ? '#C4472F' : '#EF7B66')], ['ApplicationBackgroundBrush', up(c.bg)], ['LagoonWindowBrush', up(c.bg)],
   ];
   return `<!-- Lagoon colors, ${mode} (generated from the palette page; see PLAN.md). ThemeService copies these into Application.Resources,
      so they override the Fluent theme's accent colors. Brushes use literal colors on purpose: they are copied, not referenced. -->

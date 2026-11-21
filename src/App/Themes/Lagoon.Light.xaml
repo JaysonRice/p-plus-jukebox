@@ -31,4 +31,5 @@
     <SolidColorBrush x:Key="LagoonOnAttentionBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="LagoonOnEndBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#EEF2F0" />
+    <SolidColorBrush x:Key="LagoonWindowBrush" Color="#EEF2F0" />
 </ResourceDictionary>

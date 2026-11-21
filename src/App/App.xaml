@@ -35,6 +35,10 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- Lists sit on the Lagoon panel color too (the theme's own is a neutral gray that dulls the green beside it). -->
+        <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+            <Setter Property="Background" Value="{DynamicResource LagoonSurfaceBrush}" />
+        </Style>
         <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
