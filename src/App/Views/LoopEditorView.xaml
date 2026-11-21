@@ -89,14 +89,14 @@
         <!-- 3: playback (wraps instead of cutting off when narrow) -->
         <StackPanel Grid.Row="3" Margin="0,8,0,0">
             <WrapPanel IsEnabled="{Binding IsReady}">
-                <Button Content="{Binding PlayPauseText}" Command="{Binding TogglePlayCommand}" Style="{StaticResource ToolButton}" MinWidth="90" Margin="0,0,6,4"
+                <Button Content="{Binding PlayPauseText}" Command="{Binding TogglePlayCommand}" Style="{StaticResource PlayButton}" MinWidth="90" Margin="0,0,6,4"
                         FontWeight="SemiBold" ToolTip="Play from the blue line, or pause (Space bar)" AutomationProperties.Name="Play or pause" />
                 <Button Content="⏮ From the beginning" Command="{Binding PlayFromBeginningCommand}" Style="{StaticResource ToolButton}" Margin="0,0,6,4" />
                 <Button Content="From loop start" Command="{Binding PlayFromLoopStartCommand}" Style="{StaticResource ToolButton}" Margin="0,0,6,4" />
                 <Button Content="⟲ Test the loop" Command="{Binding TestLoopCommand}" Style="{StaticResource ToolButton}" Margin="0,0,12,4"
                         ToolTip="Plays the last few seconds before the loop end, so you can hear whether the jump back sounds smooth." />
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                    <Rectangle Width="10" Height="10" Fill="{DynamicResource LagoonPlaybackBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <Rectangle Width="10" Height="10" Fill="{DynamicResource LagoonSecondBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <TextBlock Text="Blue line" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <RepeatButton Content="◀" Command="{Binding PlayheadEarlierCommand}" Style="{StaticResource SmallRepeat}"
                                   ToolTip="Move the blue line a little earlier (hold to keep moving)" AutomationProperties.Name="Blue line earlier" />
@@ -120,7 +120,7 @@
                 <TextBlock Text="{Binding LoopHint}" Style="{StaticResource Hint}" Margin="0,0,0,8" />
                 <WrapPanel IsEnabled="{Binding Loops}">
                     <StackPanel Orientation="Horizontal" Margin="0,0,32,4">
-                        <Rectangle Width="10" Height="10" Fill="{DynamicResource LagoonAttentionBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <Rectangle Width="10" Height="10" Fill="{DynamicResource LagoonAccentBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="Loop start" VerticalAlignment="Center" Width="68" />
                         <RepeatButton Content="◀" Command="{Binding StartEarlierCommand}" Style="{StaticResource SmallRepeat}" ToolTip="A little earlier (hold to keep moving)" AutomationProperties.Name="Loop start earlier" />
                         <TextBox Text="{Binding LoopStartText, UpdateSourceTrigger=LostFocus}" Width="92" Margin="4,0" FontFamily="Consolas"

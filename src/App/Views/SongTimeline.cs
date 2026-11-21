@@ -15,9 +15,9 @@ public sealed class SongTimeline : FrameworkElement
 {
     private const double BarHeight = 8, DotRadius = 7;
     // Colors come from the current theme (ThemeService); the second argument is only a fallback.
-    private Brush LoopBrush => ThemeService.Brush(this, "LagoonPlaybackBrush", Brushes.Teal);
+    private Brush LoopBrush => ThemeService.Brush(this, "LagoonSecondBrush", Brushes.RoyalBlue);
     private Brush IntroBrush => LoopBrush is SolidColorBrush b ? new SolidColorBrush(Color.FromArgb(0x70, b.Color.R, b.Color.G, b.Color.B)) : LoopBrush;
-    private Brush StartBrush => ThemeService.Brush(this, "LagoonAttentionBrush", Brushes.SteelBlue);
+    private Brush StartBrush => ThemeService.Brush(this, "LagoonAccentBrush", Brushes.SeaGreen);
     private Brush DotBrush => LoopBrush;
     private static readonly Brush CutBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x60, 0x80, 0x80, 0x80)));
     private bool _dragging;

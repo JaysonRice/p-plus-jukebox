@@ -33,10 +33,10 @@ public sealed class WaveformView : FrameworkElement
     private const double HandleWidth = 64, HandleHeight = 18;
     private const double GrabDistance = 7;
     // Colors come from the current theme (ThemeService); the second argument is only a fallback.
-    private Brush StartBrush => ThemeService.Brush(this, "LagoonAttentionBrush", Brushes.SteelBlue);
+    private Brush StartBrush => ThemeService.Brush(this, "LagoonAccentBrush", Brushes.SeaGreen); // loop start: green (you set it)
     private Brush EndBrush => ThemeService.Brush(this, "LagoonEndBrush", Brushes.IndianRed);
-    private Brush PlayheadBrush => ThemeService.Brush(this, "LagoonPlaybackBrush", Brushes.Teal);
-    private Brush OnStartBrush => ThemeService.Brush(this, "LagoonOnAttentionBrush", Brushes.White);
+    private Brush PlayheadBrush => ThemeService.Brush(this, "LagoonSecondBrush", Brushes.RoyalBlue); // playback: cobalt
+    private Brush OnStartBrush => ThemeService.Brush(this, "LagoonOnAccentBrush", Brushes.White);
     private Brush OnEndBrush => ThemeService.Brush(this, "LagoonOnEndBrush", Brushes.White);
     // Before the loop start: the intro, which plays once (light). After the loop end: never plays (dark).
     private static readonly Brush IntroBrush = Frozen(new SolidColorBrush(Color.FromArgb(0x26, 0x80, 0x80, 0x80)));

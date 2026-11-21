@@ -131,7 +131,7 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{Binding StageTitle}" Style="{StaticResource Heading}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="  • unsaved changes" VerticalAlignment="Bottom" Margin="0,0,0,3" Style="{StaticResource Hint}"
-                                   Foreground="{DynamicResource LagoonAttentionBrush}" Opacity="1" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource LagoonSecondBrush}" Opacity="1" FontWeight="SemiBold"
                                    Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </DockPanel>
@@ -147,7 +147,7 @@
                             ToolTip="Move the selected song down" AutomationProperties.Name="Move down" />
                     <Button Content="&#xE74D;" Command="{Binding RemoveCommand}" Style="{StaticResource IconButton}"
                             ToolTip="Take the selected song off this stage. It stays in your library. (Delete key)" AutomationProperties.Name="Remove from this stage" />
-                    <Button Content="&#xE768;" Command="{Binding PlayCommand}" Style="{StaticResource IconButton}" Margin="0,0,14,0"
+                    <Button Content="&#xE768;" Command="{Binding PlayCommand}" Style="{StaticResource PlayIconButton}" Margin="0,0,14,0"
                             ToolTip="Play or stop the selected song (Space bar)" AutomationProperties.Name="Play or stop" />
                     <Button Content="Reset to default songs" Command="{Binding ResetToDefaultCommand}" Style="{StaticResource ToolButton}" Height="32"
                             Visibility="{Binding CanResetToDefault, Converter={StaticResource BoolToVis}}" />
