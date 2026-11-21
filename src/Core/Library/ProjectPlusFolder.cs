@@ -11,6 +11,11 @@ public sealed class ProjectPlusFolder
     public string TracklistDir => Path.Combine(SoundDir, "tracklist");
     public string StrmDir => Path.Combine(SoundDir, "strm");
     public SongStore Songs => new(StrmDir);
+    /// <summary>The 8 stage list presets (Switch00.rss–Switch07.rss).</summary>
+    public string StageListDir => Path.Combine(Root, "pf", "stage", "switch");
+    public string StageListPath(int preset) => Path.Combine(StageListDir, $"Switch{preset:00}.rss");
+    /// <summary>"01 - Battlefield" lines naming each stage slot.</summary>
+    public string StageSlotNamesFile => Path.Combine(Root, "pf", "stage", "stageslot", "Stageslot IDs.txt");
 
     private ProjectPlusFolder(string root) => Root = Path.GetFullPath(root);
 

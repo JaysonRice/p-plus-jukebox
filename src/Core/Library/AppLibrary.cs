@@ -40,6 +40,9 @@ public sealed class AppLibrary
     public string BuildsDir => Path.Combine(Root, "builds");
     public string BackupDir => Path.Combine(Root, "backups");
     private string InfoFile => Path.Combine(Root, "library.json");
+    /// <summary>Stage slot names, copied from the Project+ folder (pf/stage/stageslot/Stageslot IDs.txt).</summary>
+    public string StageNamesFile => Path.Combine(Root, "stagenames.txt");
+    public Stages.StageSlotNames StageNames => Stages.StageSlotNames.Load(StageNamesFile);
 
     public SongStore Songs { get; }
     public LibraryInfo Info { get; private set; }
@@ -92,7 +95,42 @@ public sealed class AppLibrary
         if (!File.Exists(infoFile)) throw new MusicLibraryException($"There's no song library in \"{root}\" yet.");
         var info = JsonSerializer.Deserialize<LibraryInfo>(File.ReadAllText(infoFile), Build.Json)
                    ?? throw new MusicLibraryException("The library's settings file is damaged.");
-        return new AppLibrary(root, info);
+        var lib = new AppLibrary(root, info);
+        lib.FillInStageLists();
+        return lib;
+    }
+
+    /// <summary>
+    /// Libraries made before stage lists existed: give builds that have none a copy (from the Project+ folder the library
+    /// came from, else from the Default build), and copy the stage names. Best effort: a missing source isn't an error.
+    /// </summary>
+    private void FillInStageLists()
+    {
+        try
+        {
+            ProjectPlusFolder? pplus = null;
+            try { if (Info.ProjectPlusFolder is { } f && Directory.Exists(f)) pplus = ProjectPlusFolder.Resolve(f); }
+            catch (MusicLibraryException) { }
+            if (!File.Exists(StageNamesFile) && pplus is not null && File.Exists(pplus.StageSlotNamesFile))
+                File.Copy(pplus.StageSlotNamesFile, StageNamesFile);
+            foreach (Build build in Builds())
+            {
+                if (build.StageListPresets().Count > 0) continue;
+                if (pplus is not null && Directory.Exists(pplus.StageListDir)) CopyStageLists(i => pplus.StageListPath(i), build);
+                else if (!build.IsDefault) CopyStageLists(DefaultBuild.StageListPath, build);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    private static void CopyStageLists(Func<int, string> source, Build to)
+    {
+        for (int i = 0; i < Build.PresetCount; i++)
+        {
+            if (!File.Exists(source(i))) continue;
+            Directory.CreateDirectory(to.StageListDir);
+            File.Copy(source(i), to.StageListPath(i), overwrite: true);
+        }
     }
 
     // ---------- First run ----------
@@ -127,6 +165,8 @@ public sealed class AppLibrary
         Build defaults = lib.CreateBuildFolder(DefaultBuildName, copiedFrom: null, id: info.DefaultBuildId);
         foreach (string name in pplus.TracklistNames())
             info.FixedPathsOnImport += SongStore.CopyTracklistNormalized(Path.Combine(pplus.TracklistDir, name + ".tlst"), defaults.TracklistPath(name));
+        CopyStageLists(pplus.StageListPath, defaults);
+        if (File.Exists(pplus.StageSlotNamesFile)) File.Copy(pplus.StageSlotNamesFile, lib.StageNamesFile, overwrite: true);
 
         lib.SaveInfo();
         return lib;
@@ -179,6 +219,7 @@ public sealed class AppLibrary
         Build build = CreateBuildFolder(name, copiedFrom: from.Name);
         foreach (string stage in from.TracklistNames())
             File.Copy(from.TracklistPath(stage), build.TracklistPath(stage));
+        CopyStageLists(from.StageListPath, build);
         return build;
     }
 
