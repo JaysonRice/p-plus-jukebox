@@ -4,7 +4,7 @@
         xmlns:views="clr-namespace:PPlusTracklistEditor.App.Views"
         Title="{Binding Heading}" Width="1000" Height="680" MinWidth="700" MinHeight="420"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-    <!-- Picker for "Add from your library": the same list as the Song library tab, with multi-select. -->
+    <!-- Picker for "Add from your library": the same list as the Song Library tab, with multi-select. -->
     <DockPanel Margin="16">
         <TextBlock DockPanel.Dock="Top" Text="{Binding Heading}" Style="{StaticResource Heading}" Margin="0,0,0,4" />
         <TextBlock DockPanel.Dock="Top" Text="Select one or more songs (Ctrl+click to pick several), then Add. Double-click adds one right away."

@@ -6,13 +6,12 @@ using PPlusTracklistEditor.App.ViewModels;
 
 namespace PPlusTracklistEditor.App.Views;
 
-/// <summary>The song list with search/filter/sort/grouping. Hosted by the "Song library" tab and the add-songs picker.</summary>
+/// <summary>The song list with search/filter/sort/grouping. Hosted by the "Song Library" tab and the add-songs picker.</summary>
 public partial class LibraryView : UserControl
 {
     public LibraryView()
     {
         InitializeComponent();
-        Timeline.SeekRequested += (_, sample) => Vm?.Preview.SeekTo(sample);
         DataContextChanged += (_, e) =>
         {
             SongGrid.SelectionMode = Vm?.IsPicking == true ? DataGridSelectionMode.Extended : DataGridSelectionMode.Single;

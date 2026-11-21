@@ -13,7 +13,6 @@
     </Window.InputBindings>
 
     <DockPanel Background="{DynamicResource LagoonWindowBrush}">
-        <!-- Top: build picker and the big actions -->
         <!-- Top: a deep green band (the title bar) with white text -->
         <Border DockPanel.Dock="Top" Padding="12,10" Background="{DynamicResource LagoonTitleBarBrush}" TextElement.Foreground="{DynamicResource LagoonOnTitleBarBrush}">
             <DockPanel>
@@ -145,15 +144,13 @@
                 <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                     <Button Content="Add from your library" Command="{Binding AddFromLibraryCommand}" Style="{StaticResource ToolButton}"
                             FontWeight="SemiBold" Height="32" Margin="0,0,14,0"
-                            ToolTip="Choose songs from your song library to add to this stage" />
+                            ToolTip="Choose songs from your Song Library to add to this stage" />
                     <Button Content="&#xE74A;" Command="{Binding MoveUpCommand}" Style="{StaticResource IconButton}"
                             ToolTip="Move the selected song up" AutomationProperties.Name="Move up" />
                     <Button Content="&#xE74B;" Command="{Binding MoveDownCommand}" Style="{StaticResource IconButton}"
                             ToolTip="Move the selected song down" AutomationProperties.Name="Move down" />
                     <Button Content="&#xE74D;" Command="{Binding RemoveCommand}" Style="{StaticResource IconButton}"
-                            ToolTip="Take the selected song off this stage. It stays in your library. (Delete key)" AutomationProperties.Name="Remove from this stage" />
-                    <Button Content="&#xE768;" Command="{Binding PlayCommand}" Style="{StaticResource PlayIconButton}" Margin="0,0,14,0"
-                            ToolTip="Play or stop the selected song (Space bar)" AutomationProperties.Name="Play or stop" />
+                            ToolTip="Take the selected song off this stage. It stays in your library. (Delete key)" AutomationProperties.Name="Remove from this stage" Margin="0,0,14,0" />
                     <Button Content="Reset to default songs" Command="{Binding ResetToDefaultCommand}" Style="{StaticResource ToolButton}" Height="32"
                             Visibility="{Binding CanResetToDefault, Converter={StaticResource BoolToVis}}" />
                 </WrapPanel>
@@ -265,6 +262,9 @@
                     </Grid>
                 </Border>
 
+                <!-- Player bar for the selected song (the same one as in the Song Library), right under the list -->
+                <views:SongPlayerStrip DockPanel.Dock="Bottom" Margin="0,8,0,0" DataContext="{Binding Preview}" />
+
                 <!-- The songs -->
                 <DataGrid x:Name="SongGrid" ItemsSource="{Binding Songs}" SelectedItem="{Binding SelectedSong}"
                           AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" HeadersVisibility="Column"
@@ -291,7 +291,7 @@
             </DockPanel>
         </Grid>
           </TabItem>
-          <TabItem Header="Song library">
+          <TabItem Header="Song Library">
             <views:LibraryView DataContext="{Binding LibraryTab}" Margin="4,12,4,8" />
           </TabItem>
           <TabItem Header="Loop Maker">

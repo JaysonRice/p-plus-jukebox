@@ -107,7 +107,7 @@ public sealed partial class LibrarySongItem : LibraryRow
 
 /// <summary>
 /// Every song in the shared library: search, filter by which builds use it, sort, group by series (collapsible).
-/// Used as the "Song library" tab, and as the picker for "Add from your library" (<c>pickForStage</c> set).
+/// Used as the "Song Library" tab, and as the picker for "Add from your library" (<c>pickForStage</c> set).
 /// </summary>
 public sealed partial class LibraryViewModel : ObservableObject
 {
@@ -157,7 +157,7 @@ public sealed partial class LibraryViewModel : ObservableObject
     public SongPreviewViewModel Preview { get; }
     public string? PickForStage { get; }
     public bool IsPicking => PickForStage is not null;
-    public string Heading => IsPicking ? $"Add songs to {PickForStage}" : "Your song library";
+    public string Heading => IsPicking ? $"Add songs to {PickForStage}" : "Your Song Library";
 
     /// <summary>Header rows and song rows together; <see cref="RowsView"/> filters and orders them.</summary>
     public BulkObservableCollection<LibraryRow> Rows { get; } = [];

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
@@ -53,6 +53,9 @@ public sealed partial class MainViewModel : ObservableObject
     private StageEditorViewModel? _editor;
 
     public bool HasEditor => Editor is not null;
+
+    // The old editor's player bar stops listening to the shared player when another stage opens.
+    partial void OnEditorChanging(StageEditorViewModel? value) => Editor?.Preview.Dispose();
 
     public string WindowTitle =>
         $"{(Editor?.IsDirty == true ? "• " : "")}{SelectedBuild?.Name ?? ""}{(Editor is null ? "" : " – " + Editor.StageTitle)} – {Dialogs.AppTitle}";
@@ -235,7 +238,7 @@ public sealed partial class MainViewModel : ObservableObject
     // ---- tabs ----
 
     private LibraryViewModel? _libraryTab;
-    /// <summary>The "Song library" tab (made on first use).</summary>
+    /// <summary>The "Song Library" tab (made on first use).</summary>
     public LibraryViewModel LibraryTab => _libraryTab ??= new LibraryViewModel(Library, Player, pickForStage: null)
     {
         AddToStageRequested = AddSongToStage,
@@ -244,7 +247,7 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     /// <summary>
-    /// BRSTM files (or folders of them) picked or dropped on the Song library: ask about titles and series, then copy them
+    /// BRSTM files (or folders of them) picked or dropped on the Song Library: ask about titles and series, then copy them
     /// into the library. A single other audio file (MP3, WAV...) goes to the Loop Maker instead, since it needs a loop.
     /// </summary>
     private void ImportSongFiles(IReadOnlyList<string> paths)
@@ -317,7 +320,7 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// "Add to a stage…" in the Song library: pick one of the current build's stages, then go to the Stages tab with that
+    /// "Add to a stage…" in the Song Library: pick one of the current build's stages, then go to the Stages tab with that
     /// stage open and the song added (unsaved, so it can still be undone or reordered).
     /// </summary>
     private void AddSongToStage(string songPath, string songName)

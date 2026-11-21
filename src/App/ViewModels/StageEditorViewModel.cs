@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,12 +22,15 @@ public sealed partial class StageEditorViewModel : ObservableObject
         _main = main;
         Session = session;
         History = new EditHistory(session);
+        Preview = new SongPreviewViewModel(main.Player);
         Rebuild(select: 0); // first song selected, so its settings are visible right away
     }
 
     public StageEditSession Session { get; }
     public EditHistory History { get; }
     public PreviewPlayer Player => _main.Player;
+    /// <summary>The player bar under the song list: the selected song's timeline, Play/Pause, skip around.</summary>
+    public SongPreviewViewModel Preview { get; }
     public Window? Owner => Application.Current?.MainWindow;
 
     public string StageTitle => Session.DisplayName;
@@ -47,7 +50,14 @@ public sealed partial class StageEditorViewModel : ObservableObject
 
     public bool HasSelection => SelectedSong is not null;
 
-    partial void OnSelectedSongChanged(SongRowViewModel? value) => History.Break();
+    partial void OnSelectedSongChanged(SongRowViewModel? value)
+    {
+        History.Break();
+        string? why = value is null || value.FilePath is not null ? null
+            : value.IsDiscSong ? "This is one of Brawl's own songs, played from the game disc, so it can't be played here."
+            : "This song's file is missing, so it can't be played.";
+        _ = Preview.ShowAsync(value?.FilePath, value?.DisplayTitle, why, value?.Volume ?? 80);
+    }
 
     // ---- state refresh ----
 
@@ -84,8 +94,7 @@ public sealed partial class StageEditorViewModel : ObservableObject
 
     internal void OnVolumeChanged(SongRowViewModel row)
     {
-        if (Player.IsPlaying && row.FilePath is not null && string.Equals(Player.CurrentFile, row.FilePath, StringComparison.OrdinalIgnoreCase))
-            Player.SetVolume(row.Volume);
+        if (row == SelectedSong) Preview.SetVolume(row.Volume); // a playing song gets louder or quieter right away
     }
 
     // ---- editing commands ----
@@ -100,7 +109,7 @@ public sealed partial class StageEditorViewModel : ObservableObject
 
     /// <summary>
     /// Adds songs that are already in the library to this stage (unsaved until Save). Songs the stage already has are
-    /// skipped and reported. Used by "Add from your library" and by "Add to a stage" in the Song library tab.
+    /// skipped and reported. Used by "Add from your library" and by "Add to a stage" in the Song Library tab.
     /// </summary>
     public void AddLibrarySongs(IReadOnlyList<string> songPaths)
     {
@@ -195,12 +204,7 @@ public sealed partial class StageEditorViewModel : ObservableObject
 
     /// <summary>Space bar / Play button: toggles the selected song.</summary>
     [RelayCommand(CanExecute = nameof(CanPlay))]
-    private async Task Play()
-    {
-        if (SelectedSong is not { FilePath: { } file } row) return;
-        if (Player.IsPlaying && string.Equals(Player.CurrentFile, file, StringComparison.OrdinalIgnoreCase)) { Player.Stop(); return; }
-        await Player.PlayAsync(file, row.DisplayTitle, row.Volume);
-    }
+    private void Play() => Preview.TogglePlay(); // same as the player bar's Play/Pause
 
     /// <summary>Page Up / Page Down.</summary>
     public void SelectRelative(int delta)
