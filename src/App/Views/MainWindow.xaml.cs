@@ -24,12 +24,21 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (!_vm.ConfirmLeaveStage() || !_vm.LoopMaker.ConfirmDiscard()) e.Cancel = true;
+        if (!_vm.ConfirmLeaveAll() || !_vm.LoopMaker.ConfirmDiscard()) e.Cancel = true;
     }
 
     /// <summary>Space = play/stop, Page Up/Down = previous/next song. Not while typing.</summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_vm.SelectedTab == MainViewModel.StageListsTabIndex)
+        {
+            if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control && _vm.StageLists?.SaveCommand.CanExecute(null) == true)
+            {
+                _vm.StageLists.SaveCommand.Execute(null);
+                e.Handled = true;
+            }
+            return;
+        }
         if (_vm.SelectedTab == MainViewModel.LoopMakerTabIndex)
         {
             if (e.Key == Key.Space && LoopEditorView.SpaceMeansPlay && _vm.LoopMaker.Editor is { } loop) { loop.TogglePlay(); e.Handled = true; }

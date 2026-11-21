@@ -291,6 +291,9 @@
             </DockPanel>
         </Grid>
           </TabItem>
+          <TabItem Header="Stage Lists">
+            <views:StageListsView DataContext="{Binding StageLists}" />
+          </TabItem>
           <TabItem Header="Song Library">
             <views:LibraryView DataContext="{Binding LibraryTab}" Margin="4,12,4,8" />
           </TabItem>

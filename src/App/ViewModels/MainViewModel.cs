@@ -69,13 +69,14 @@ public sealed partial class MainViewModel : ObservableObject
         set
         {
             if (value is null || value == _selectedBuild) return;
-            if (!ConfirmLeaveStage()) { RevertLater(nameof(SelectedBuild)); return; }
+            if (!ConfirmLeaveAll()) { RevertLater(nameof(SelectedBuild)); return; }
             _selectedBuild = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(CanEditBuild));
             DeleteBuildCommand.NotifyCanExecuteChanged();
             if (_libraryTab is not null) _libraryTab.CurrentBuildName = value.Name;
+            StageLists = new StageListsViewModel(value);
             LoadStages();
         }
     }
@@ -140,6 +141,9 @@ public sealed partial class MainViewModel : ObservableObject
         Application.Current.Dispatcher.BeginInvoke(() => OnPropertyChanged(property));
 
     /// <summary>True if it's OK to leave the current stage (saved, discarded, or nothing to save).</summary>
+    /// <summary>Unsaved changes anywhere in the build (the open stage and the open stage list): ask about each. True = go ahead.</summary>
+    public bool ConfirmLeaveAll() => ConfirmLeaveStage() && (StageLists?.ConfirmLeave() ?? true);
+
     public bool ConfirmLeaveStage()
     {
         if (Editor is not { IsDirty: true } editor) return true;
@@ -175,7 +179,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void NewBuild()
     {
-        if (SelectedBuild is not { } from || !ConfirmLeaveStage()) return;
+        if (SelectedBuild is not { } from || !ConfirmLeaveAll()) return;
         string? name = Dialogs.PromptText(Owner, "New build",
             $"Name for the new build. It starts as a copy of \"{from.Name}\"; your songs are shared, not copied.", $"{from.Name} copy");
         if (string.IsNullOrWhiteSpace(name)) return;
@@ -207,7 +211,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ImportMusicFolder()
     {
-        if (!ConfirmLeaveStage()) return;
+        if (!ConfirmLeaveAll()) return;
         string? folder = Dialogs.PickFolder(Owner, "Choose a music folder (with \"strm\" and \"tracklist\" inside)");
         if (folder is null) return;
         var source = MusicFolder.Open(folder);
@@ -230,7 +234,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Sync()
     {
-        if (SelectedBuild is not { } build || !ConfirmLeaveStage()) return;
+        if (SelectedBuild is not { } build || !ConfirmLeaveAll()) return;
         Player.Stop();
         new SyncWindow(new SyncViewModel(build)) { Owner = Owner }.ShowDialog();
     }
@@ -339,7 +343,10 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The "Loop Maker" tab: make a looping song straight into the library.</summary>
     public LoopMakerViewModel LoopMaker => _loopMaker ??= new LoopMakerViewModel(Library, Player, () => SelectedTab = LibraryTabIndex);
 
-    public const int StagesTabIndex = 0, LibraryTabIndex = 1, LoopMakerTabIndex = 2;
+    public const int StagesTabIndex = 0, StageListsTabIndex = 1, LibraryTabIndex = 2, LoopMakerTabIndex = 3;
+
+    /// <summary>The "Stage Lists" tab for the current build.</summary>
+    [ObservableProperty] private StageListsViewModel? _stageLists;
 
     [ObservableProperty] private int _selectedTab;
 
