@@ -41,6 +41,27 @@ public sealed class Build
     public string Id { get; }
     public string Dir { get; }
     public string TracklistDir => Path.Combine(Dir, "tracklist");
+    /// <summary>This build's copy of the 8 stage list presets (Switch00.rss–Switch07.rss).</summary>
+    public string StageListDir => Path.Combine(Dir, "stagelists");
+    public const int PresetCount = 8;
+    public string StageListPath(int preset) => Path.Combine(StageListDir, $"Switch{preset:00}.rss");
+    /// <summary>Which presets this build has (normally all 8; none for a library made before stage lists existed and with no source to copy from).</summary>
+    public IReadOnlyList<int> StageListPresets() => Enumerable.Range(0, PresetCount).Where(i => File.Exists(StageListPath(i))).ToList();
+
+    public global::PPlusTracklistEditor.Core.Stages.StageListFile OpenStageList(int preset) => global::PPlusTracklistEditor.Core.Stages.StageListFile.Load(StageListPath(preset));
+
+    /// <summary>Saves a preset, keeping the previous version in the backups folder.</summary>
+    public void SaveStageList(int preset, global::PPlusTracklistEditor.Core.Stages.StageListFile list)
+    {
+        string path = StageListPath(preset);
+        if (File.Exists(path))
+        {
+            string backups = Path.Combine(Library.BackupDir, Id);
+            Directory.CreateDirectory(backups);
+            File.Copy(path, Path.Combine(backups, $"Switch{preset:00}.{DateTime.Now:yyyyMMdd-HHmmss-fff}.rss"));
+        }
+        list.Save(path);
+    }
     public BuildInfo Info { get; private set; }
     public string Name => Info.Name;
     public bool IsDefault => Id == Library.Info.DefaultBuildId;

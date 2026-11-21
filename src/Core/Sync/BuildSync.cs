@@ -15,33 +15,55 @@ public sealed class SyncPlan
     /// <summary>Tracklists on the target that this build doesn't have. Left alone (e.g. a stage from a newer P+).</summary>
     public required IReadOnlyList<string> TracklistsLeftAlone { get; init; }
 
-    /// <summary>Song paths copied from the library (missing or different on the target).</summary>
+    /// <summary>Song paths copied from the library (missing on the target, or a different size).</summary>
     public required IReadOnlyList<string> SongsToCopy { get; init; }
+    /// <summary>
+    /// Songs on the target with the same size but a different date (e.g. put there by another tool). Compared byte for
+    /// byte while syncing: copied only if different, otherwise just given the library's date so the next sync skips them.
+    /// Reading a card is much faster than writing it, so this avoids rewriting a card full of identical songs.
+    /// </summary>
+    public required IReadOnlyList<string> SongsToCheck { get; init; }
+    /// <summary>Total size of <see cref="SongsToCopy"/>, for the "about how long" estimate.</summary>
+    public required long BytesToCopy { get; init; }
+    /// <summary>Stage list presets (0 = Switch00) that differ on the target and will be written.</summary>
+    public required IReadOnlyList<int> StageListsToWrite { get; init; }
     /// <summary>Song paths on the target that no tracklist uses anymore. Deleted from the target only, never from the library.</summary>
     public required IReadOnlyList<string> SongsToDelete { get; init; }
     /// <summary>Songs a tracklist uses that are neither in the library nor on the target: those stages would play silence.</summary>
     public required IReadOnlyList<string> MissingSongs { get; init; }
 
-    public bool HasChanges => TracklistsToWrite.Count + SongsToCopy.Count + SongsToDelete.Count > 0;
+    public bool HasChanges => TracklistsToWrite.Count + SongsToCopy.Count + SongsToCheck.Count + SongsToDelete.Count + StageListsToWrite.Count > 0;
 
     /// <summary>A short plain-language description for the confirm dialog.</summary>
     public string Summary()
     {
-        if (!HasChanges) return $"\"{Build.Name}\" is already up to date in {Target.SoundDir}. Nothing to do.";
-        var lines = new List<string> { $"Sync \"{Build.Name}\" to {Target.SoundDir}:" };
+        if (!HasChanges) return $"\"{Build.Name}\" is already up to date in {Target.Root}. Nothing to do.";
+        var lines = new List<string> { $"Sync \"{Build.Name}\" to {Target.Root}:" };
         if (TracklistsToWrite.Count > 0) lines.Add($"• Update {Plural(TracklistsToWrite.Count, "stage song list")}");
-        if (SongsToCopy.Count > 0) lines.Add($"• Copy {Plural(SongsToCopy.Count, "song")}");
+        if (SongsToCopy.Count > 0) lines.Add($"• Copy {Plural(SongsToCopy.Count, "song")} ({SizeText(BytesToCopy)}, about {TimeText(BytesToCopy)} to an SD card)");
+        if (SongsToCheck.Count > 0) lines.Add($"• Check {Plural(SongsToCheck.Count, "song")} that look already there (only copied if different)");
+        if (StageListsToWrite.Count > 0) lines.Add($"• Update {Plural(StageListsToWrite.Count, "stage list preset")} ({string.Join(", ", StageListsToWrite.Select(i => $"Switch{i:00}"))})");
         if (SongsToDelete.Count > 0) lines.Add($"• Remove {Plural(SongsToDelete.Count, "song")} no stage uses anymore (they stay in your library)");
         if (MissingSongs.Count > 0) lines.Add($"• Warning: {Plural(MissingSongs.Count, "song")} can't be found and will be silent");
-        lines.Add("Nothing outside the music folder is changed.");
+        lines.Add("Only the music and stage list folders are changed.");
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string SizeText(long bytes) => bytes >= 1L << 30 ? $"{bytes / (double)(1L << 30):0.0} GB" : $"{Math.Max(1, bytes >> 20)} MB";
+
+    /// <summary>Rough time at ~1.5 MB/s, a typical write speed for small files on an SD card in a USB reader.</summary>
+    private static string TimeText(long bytes)
+    {
+        double minutes = bytes / (1.5 * (1 << 20)) / 60;
+        return minutes < 1 ? "less than a minute" : minutes < 1.5 ? "1 minute" : $"{Math.Round(minutes)} minutes";
     }
 
     private static string Plural(int n, string word) => n == 1 ? $"1 {word}" : $"{n} {word}s";
 }
 
 /// <summary>
-/// Puts a build's music on a Project+ folder (SD card or any copy). Only <c>pf\sound</c> is touched:
+/// Puts a build's music and stage lists on a Project+ folder (SD card or any copy). Only <c>pf\sound</c> and the stage
+/// list presets (<c>pf\stage\switch\SwitchNN.rss</c>) are touched:
 /// songs are copied first, then tracklists are written, then songs no tracklist uses are deleted.
 /// "In use" = named by any tracklist on the target, plus the "_b" (hurry-up) version of each such song.
 /// </summary>
@@ -77,13 +99,22 @@ public static class BuildSync
 
         SongStore targetSongs = target.Songs;
         var toCopy = new List<string>();
+        var toCheck = new List<string>();
+        long bytesToCopy = 0;
         var missing = new List<string>();
         foreach (string song in used.Order(StringComparer.OrdinalIgnoreCase))
         {
             foreach (string p in new[] { song, song + SongStore.HurryUpSuffix })
             {
                 bool inLibrary = lib.Songs.Has(p);
-                if (inLibrary && !SameFile(lib.Songs.FileFor(p), targetSongs.FileFor(p))) toCopy.Add(p);
+                if (inLibrary)
+                {
+                    switch (Compare(lib.Songs.FileFor(p), targetSongs.FileFor(p)))
+                    {
+                        case FileMatch.Different: toCopy.Add(p); bytesToCopy += new FileInfo(lib.Songs.FileFor(p)).Length; break;
+                        case FileMatch.SameSizeOtherDate: toCheck.Add(p); break;
+                    }
+                }
                 else if (!inLibrary && p == song && !targetSongs.Has(p) && !DiscSongs.IsDiscFileName(p)) missing.Add(p);
             }
         }
@@ -91,6 +122,10 @@ public static class BuildSync
         var toDelete = targetSongs.All()
             .Where(p => !used.Contains(p) && !(SongStore.HurryUpBase(p) is { } b && used.Contains(b)))
             .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var stageLists = build.StageListPresets()
+            .Where(i => !File.Exists(target.StageListPath(i)) || !File.ReadAllBytes(target.StageListPath(i)).AsSpan().SequenceEqual(File.ReadAllBytes(build.StageListPath(i))))
             .ToList();
 
         return new SyncPlan
@@ -101,6 +136,9 @@ public static class BuildSync
             TracklistsUnchanged = unchanged,
             TracklistsLeftAlone = leftAlone,
             SongsToCopy = toCopy,
+            SongsToCheck = toCheck,
+            BytesToCopy = bytesToCopy,
+            StageListsToWrite = stageLists,
             SongsToDelete = toDelete,
             MissingSongs = missing,
         };
@@ -111,7 +149,7 @@ public static class BuildSync
     {
         AppLibrary lib = plan.Build.Library;
         SongStore targetSongs = plan.Target.Songs;
-        int total = plan.SongsToCopy.Count + plan.TracklistsToWrite.Count + plan.SongsToDelete.Count, done = 0;
+        int total = plan.SongsToCopy.Count + plan.SongsToCheck.Count + plan.TracklistsToWrite.Count + plan.SongsToDelete.Count + plan.StageListsToWrite.Count, done = 0;
 
         // 1. Songs first, so no tracklist ever points at a song that isn't there yet.
         foreach (string song in plan.SongsToCopy)
@@ -121,6 +159,13 @@ public static class BuildSync
             File.Copy(lib.Songs.FileFor(song), dest, overwrite: true);
             progress?.Report((++done, total));
         }
+        foreach (string song in plan.SongsToCheck)
+        {
+            string source = lib.Songs.FileFor(song), dest = targetSongs.FileFor(song);
+            if (SongStore.SameContent(source, dest)) File.SetLastWriteTimeUtc(dest, File.GetLastWriteTimeUtc(source));
+            else File.Copy(source, dest, overwrite: true);
+            progress?.Report((++done, total));
+        }
 
         // 2. Tracklists (temp file + replace, so a pulled card never has half a tracklist).
         Directory.CreateDirectory(plan.Target.TracklistDir);
@@ -128,6 +173,16 @@ public static class BuildSync
         {
             string dest = Path.Combine(plan.Target.TracklistDir, name + ".tlst");
             File.Copy(plan.Build.TracklistPath(name), dest + ".tmp", overwrite: true);
+            File.Move(dest + ".tmp", dest, overwrite: true);
+            progress?.Report((++done, total));
+        }
+
+        // Stage list presets (temp file + replace too).
+        foreach (int preset in plan.StageListsToWrite)
+        {
+            string dest = plan.Target.StageListPath(preset);
+            Directory.CreateDirectory(plan.Target.StageListDir);
+            File.Copy(plan.Build.StageListPath(preset), dest + ".tmp", overwrite: true);
             File.Move(dest + ".tmp", dest, overwrite: true);
             progress?.Report((++done, total));
         }
@@ -149,11 +204,14 @@ public static class BuildSync
             if (e.Path is not null) used.Add(SongStore.Normalize(e.Path));
     }
 
-    private static bool SameFile(string source, string dest)
+    private enum FileMatch { Same, SameSizeOtherDate, Different }
+
+    private static FileMatch Compare(string source, string dest)
     {
         var d = new FileInfo(dest);
-        if (!d.Exists) return false;
+        if (!d.Exists) return FileMatch.Different;
         var s = new FileInfo(source);
-        return s.Length == d.Length && (s.LastWriteTimeUtc - d.LastWriteTimeUtc).Duration() <= TimeTolerance;
+        if (s.Length != d.Length) return FileMatch.Different;
+        return (s.LastWriteTimeUtc - d.LastWriteTimeUtc).Duration() <= TimeTolerance ? FileMatch.Same : FileMatch.SameSizeOtherDate;
     }
 }

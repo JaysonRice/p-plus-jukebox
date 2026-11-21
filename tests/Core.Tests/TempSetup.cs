@@ -76,5 +76,41 @@ internal sealed class TempSetup : IDisposable
         SdTracklist("Mushroom_Kingdom", Song(0xF000, "Super Mario/Overworld", "Overworld"), Song(0xF001, "Z01"));
     }
 
+    /// <summary>
+    /// A small stage list preset: one page, stages given as (slot id, on, hazards). Same layout as the game's .rss
+    /// (masks at 0x00/0x1E, page at 0x3C, stage table at 0x104).
+    /// </summary>
+    public static byte[] Rss(params (int Slot, bool On, bool Hazards)[] stages)
+    {
+        var b = new byte[800];
+        uint on = 0, hz = 0;
+        b[0x3C] = (byte)stages.Length;
+        for (int i = 0; i < stages.Length; i++)
+        {
+            b[0x3C + 1 + i] = (byte)i;               // page position i -> table index i
+            b[0x104 + i * 2] = (byte)stages[i].Slot;  // stage slot
+            b[0x104 + i * 2 + 1] = (byte)(i + 1);     // cosmetic id
+            if (stages[i].On) on |= 1u << i;
+            if (stages[i].Hazards) hz |= 1u << i;
+        }
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(2), on);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(0x1E + 2), hz);
+        b[799] = 0xEE; // something outside the masks, to prove it survives a save
+        return b;
+    }
+
+    public string StageListDir => Path.Combine(ProjectPlusRoot, "pf", "stage", "switch");
+
+    /// <summary>8 presets in the fake Project+ (preset n has stage slots 1..3, slot n+1 hazards on) plus stage names.</summary>
+    public void StockStageLists()
+    {
+        Directory.CreateDirectory(StageListDir);
+        for (int n = 0; n < 8; n++)
+            File.WriteAllBytes(Path.Combine(StageListDir, $"Switch{n:00}.rss"), Rss((1, true, n == 0), (2, n % 2 == 0, n == 1), (3, false, false)));
+        string names = Path.Combine(ProjectPlusRoot, "pf", "stage", "stageslot");
+        Directory.CreateDirectory(names);
+        File.WriteAllLines(Path.Combine(names, "Stageslot IDs.txt"), ["01 - Battlefield", "02 - Final Destination", "03 - Delfino Secret"]);
+    }
+
     public void Dispose() => Directory.Delete(Root, recursive: true);
 }
