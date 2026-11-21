@@ -38,6 +38,9 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Title}" Style="{StaticResource Heading}" TextTrimming="CharacterEllipsis" />
+                        <Button Command="{Binding RenameCommand}" IsEnabled="{Binding CanRename}" Style="{StaticResource IconButton}" Margin="8,0,0,0"
+                                VerticalAlignment="Center" ToolTip="{Binding RenameHint}" ToolTipService.ShowOnDisabled="True"
+                                AutomationProperties.Name="Rename preset" Content="&#xE70F;" />
                         <TextBlock Text="  • unsaved changes" VerticalAlignment="Bottom" Margin="0,0,0,3" FontWeight="SemiBold"
                                    Foreground="{DynamicResource LagoonSecondBrush}" Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>

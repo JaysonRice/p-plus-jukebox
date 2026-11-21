@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PPlusTracklistEditor.App.Services;
 using PPlusTracklistEditor.Core.Library;
+using PPlusTracklistEditor.Core.Menu;
 using PPlusTracklistEditor.Core.Stages;
 
 namespace PPlusTracklistEditor.App.ViewModels;
@@ -24,6 +25,7 @@ public sealed partial class StageListsViewModel : ObservableObject
         _build = build;
         _names = build.Library.StageNames;
         foreach (int preset in build.StageListPresets()) Presets.Add(new StagePresetItem(preset));
+        CanRename = build.CanRenamePresets;
         foreach (var p in Presets) p.Refresh(build);
         if (Presets.Count > 0) { _selectedPreset = Presets[0]; Load(); }
     }
@@ -52,6 +54,40 @@ public sealed partial class StageListsViewModel : ObservableObject
     }
 
     public string Title => SelectedPreset is { } p ? p.Name : "";
+
+    // ---- renaming (written into the game's menu file on sync) ----
+
+    public bool CanRename { get; }
+
+    public string RenameHint => CanRename
+        ? "Rename this preset. The game shows the new name the next time you put this build on your Project+."
+        : "Preset names can't be changed: your Project+ folder's menu file (pf\\menu2\\mu_menumain.pac) couldn't be read.";
+
+    [RelayCommand]
+    private void Rename()
+    {
+        if (!CanRename || SelectedPreset is not { } preset) return;
+        string current = _build.PresetNamesOrStock[preset.Index];
+        string prompt = $"New name for preset {preset.Index + 1} (up to {PresetNames.MaxLength} characters):" +
+                        (preset.Index == 0 ? "\n\nThis one loads first, so its name usually ends with \"(L/R to swap preset)\" as a hint for players." : "");
+        while (true)
+        {
+            string? name = Dialogs.PromptText(Owner, "Rename preset", prompt, current);
+            if (name is null || name == current) return;
+            try
+            {
+                _build.RenamePreset(preset.Index, name.Trim());
+                preset.Refresh(_build);
+                OnPropertyChanged(nameof(Title));
+                return;
+            }
+            catch (MusicLibraryException e)
+            {
+                Dialogs.Error(Owner, e.Message);
+                current = name; // let them fix it rather than retype it
+            }
+        }
+    }
 
     private void Load()
     {
@@ -140,19 +176,22 @@ public sealed partial class StageListsViewModel : ObservableObject
 public sealed partial class StagePresetItem(int index) : ObservableObject
 {
     public int Index { get; } = index;
-    /// <summary>"Preset 1 · Default": number (the order L/R cycles in the game) and the name stock Project+ shows.</summary>
-    public string Name => $"Preset {Index + 1} · {StageSlotNames.StockPresetNames[Index]}";
+    /// <summary>The name the game shows for it (this build's).</summary>
+    [ObservableProperty] private string _name = "";
 
+    /// <summary>"Preset 1 · 9 stages on · loads first": its place in the L/R order and what's in it.</summary>
     [ObservableProperty] private string _details = "";
 
     public void Refresh(Build build)
     {
+        Name = build.PresetNamesOrStock[Index];
+        string where = $"Preset {Index + 1}";
         try
         {
             int on = build.OpenStageList(Index).OnStages.Count();
-            Details = (on == 1 ? "1 stage on" : $"{on} stages on") + (Index == 0 ? " · loads first" : "");
+            Details = $"{where} · " + (on == 1 ? "1 stage on" : $"{on} stages on") + (Index == 0 ? " · loads first" : "");
         }
-        catch (Exception e) when (e is StageListFormatException or IOException) { Details = "Can't be read"; }
+        catch (Exception e) when (e is StageListFormatException or IOException) { Details = $"{where} · can't be read"; }
     }
 
     public override string ToString() => $"{Name}, {Details}";
