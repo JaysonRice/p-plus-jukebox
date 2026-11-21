@@ -94,6 +94,27 @@
                                                         </Style>
                                                     </Border.Style>
                                                     <DockPanel>
+                                                        <!-- Hazards-on marker for listed stages, while the Hazards boxes are hidden -->
+                                                        <TextBlock DockPanel.Dock="Right" Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"
+                                                                   VerticalAlignment="Center" Margin="8,0,2,0" Foreground="{DynamicResource LagoonSecondBrush}"
+                                                                   ToolTip="Hazards on" ToolTipService.InitialShowDelay="200" Background="Transparent"
+                                                                   AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: hazards on'}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <MultiDataTrigger>
+                                                                            <MultiDataTrigger.Conditions>
+                                                                                <Condition Binding="{Binding IsOn}" Value="True" />
+                                                                                <Condition Binding="{Binding HasHazards}" Value="True" />
+                                                                                <Condition Binding="{Binding DataContext.ShowHazards, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="False" />
+                                                                            </MultiDataTrigger.Conditions>
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </MultiDataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
                                                         <CheckBox DockPanel.Dock="Right" Content="Hazards" IsChecked="{Binding HasHazards}" FontSize="12" MinWidth="0"
                                                                   Visibility="{Binding DataContext.ShowHazards, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
                                                                   Margin="8,0,0,0" AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}" />
