@@ -27,6 +27,13 @@ public sealed class BuildInfo
     public string? CopiedFrom { get; set; }
     /// <summary>Project+ folder this build was last synced to, so Sync can suggest it again.</summary>
     public string? LastSyncFolder { get; set; }
+    /// <summary>
+    /// The 8 stage list preset names as this build wants them in the game's menu (null = not known: the library was
+    /// made from a Project+ folder without a readable menu file). Sync rewrites the menu file only when these differ.
+    /// </summary>
+    public List<string>? PresetNames { get; set; }
+    /// <summary>Starters and counterpicks per preset (the game only stores the order of page 1).</summary>
+    public List<global::PPlusTracklistEditor.Core.Stages.PresetRoles> StageListRoles { get; set; } = [];
 }
 
 /// <summary>
@@ -50,9 +57,38 @@ public sealed class Build
 
     public global::PPlusTracklistEditor.Core.Stages.StageListFile OpenStageList(int preset) => global::PPlusTracklistEditor.Core.Stages.StageListFile.Load(StageListPath(preset));
 
-    /// <summary>Saves a preset, keeping the previous version in the backups folder.</summary>
-    public void SaveStageList(int preset, global::PPlusTracklistEditor.Core.Stages.StageListFile list)
+    /// <summary>Preset names to show: this build's, else what stock Project+ calls them.</summary>
+    public IReadOnlyList<string> PresetNamesOrStock => Info.PresetNames ?? [.. global::PPlusTracklistEditor.Core.Stages.StageSlotNames.StockPresetNames];
+
+    /// <summary>Names can only be changed once they're known (read from the Project+ menu file), so sync can compare.</summary>
+    public bool CanRenamePresets => Info.PresetNames is not null;
+
+    public void RenamePreset(int preset, string name)
     {
+        if (Info.PresetNames is not { } names) throw new MusicLibraryException("This build's preset names aren't known yet, so they can't be changed.");
+        if (global::PPlusTracklistEditor.Core.Menu.PresetNames.Problem(name) is { } problem) throw new MusicLibraryException(problem);
+        names[preset] = name;
+        SaveInfo();
+    }
+
+    internal void SetPresetNames(IReadOnlyList<string>? names)
+    {
+        Info.PresetNames = names?.ToList();
+        SaveInfo();
+    }
+
+    public global::PPlusTracklistEditor.Core.Stages.PresetRoles? StageRolesFor(int preset) => Info.StageListRoles.FirstOrDefault(r => r.Preset == preset);
+
+    /// <summary>Saves a preset, keeping the previous version in the backups folder. <paramref name="roles"/> (if given) is remembered too.</summary>
+    public void SaveStageList(int preset, global::PPlusTracklistEditor.Core.Stages.StageListFile list, global::PPlusTracklistEditor.Core.Stages.PresetRoles? roles = null)
+    {
+        if (roles is not null)
+        {
+            roles.Preset = preset;
+            Info.StageListRoles.RemoveAll(r => r.Preset == preset);
+            Info.StageListRoles.Add(roles);
+            SaveInfo();
+        }
         string path = StageListPath(preset);
         if (File.Exists(path))
         {

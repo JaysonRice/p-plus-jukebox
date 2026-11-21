@@ -113,8 +113,15 @@ public sealed class AppLibrary
             catch (MusicLibraryException) { }
             if (!File.Exists(StageNamesFile) && pplus is not null && File.Exists(pplus.StageSlotNamesFile))
                 File.Copy(pplus.StageSlotNamesFile, StageNamesFile);
+            IReadOnlyList<string>? names = null;
+            bool namesRead = false;
             foreach (Build build in Builds())
             {
+                if (build.Info.PresetNames is null && pplus is not null)
+                {
+                    if (!namesRead) { names = pplus.ReadPresetNames(); namesRead = true; }
+                    if (names is not null) build.SetPresetNames(names);
+                }
                 if (build.StageListPresets().Count > 0) continue;
                 if (pplus is not null && Directory.Exists(pplus.StageListDir)) CopyStageLists(i => pplus.StageListPath(i), build);
                 else if (!build.IsDefault) CopyStageLists(DefaultBuild.StageListPath, build);
@@ -166,6 +173,7 @@ public sealed class AppLibrary
         foreach (string name in pplus.TracklistNames())
             info.FixedPathsOnImport += SongStore.CopyTracklistNormalized(Path.Combine(pplus.TracklistDir, name + ".tlst"), defaults.TracklistPath(name));
         CopyStageLists(pplus.StageListPath, defaults);
+        defaults.SetPresetNames(pplus.ReadPresetNames());
         if (File.Exists(pplus.StageSlotNamesFile)) File.Copy(pplus.StageSlotNamesFile, lib.StageNamesFile, overwrite: true);
 
         lib.SaveInfo();
@@ -220,6 +228,7 @@ public sealed class AppLibrary
         foreach (string stage in from.TracklistNames())
             File.Copy(from.TracklistPath(stage), build.TracklistPath(stage));
         CopyStageLists(from.StageListPath, build);
+        if (from.Info.PresetNames is { } names) build.SetPresetNames(names);
         return build;
     }
 

@@ -27,12 +27,18 @@ public sealed class SyncPlan
     public required long BytesToCopy { get; init; }
     /// <summary>Stage list presets (0 = Switch00) that differ on the target and will be written.</summary>
     public required IReadOnlyList<int> StageListsToWrite { get; init; }
+    /// <summary>Preset names to write into the target's menu file (null = the names there already match, or unknown).</summary>
+    public IReadOnlyList<string>? PresetNamesToWrite { get; init; }
+    /// <summary>The menu files (names in <see cref="ProjectPlusFolder.MenuFileNames"/>) whose preset names differ from the build's.</summary>
+    public IReadOnlyList<string> MenuFilesToRename { get; init; } = [];
+    /// <summary>Why the preset names can't be written to this target (shown in the summary; the rest still syncs).</summary>
+    public string? PresetNamesProblem { get; init; }
     /// <summary>Song paths on the target that no tracklist uses anymore. Deleted from the target only, never from the library.</summary>
     public required IReadOnlyList<string> SongsToDelete { get; init; }
     /// <summary>Songs a tracklist uses that are neither in the library nor on the target: those stages would play silence.</summary>
     public required IReadOnlyList<string> MissingSongs { get; init; }
 
-    public bool HasChanges => TracklistsToWrite.Count + SongsToCopy.Count + SongsToCheck.Count + SongsToDelete.Count + StageListsToWrite.Count > 0;
+    public bool HasChanges => TracklistsToWrite.Count + SongsToCopy.Count + SongsToCheck.Count + SongsToDelete.Count + StageListsToWrite.Count > 0 || PresetNamesToWrite is not null;
 
     /// <summary>A short plain-language description for the confirm dialog.</summary>
     public string Summary()
@@ -42,10 +48,12 @@ public sealed class SyncPlan
         if (TracklistsToWrite.Count > 0) lines.Add($"• Update {Plural(TracklistsToWrite.Count, "stage song list")}");
         if (SongsToCopy.Count > 0) lines.Add($"• Copy {Plural(SongsToCopy.Count, "song")} ({SizeText(BytesToCopy)}, about {TimeText(BytesToCopy)} to an SD card)");
         if (SongsToCheck.Count > 0) lines.Add($"• Check {Plural(SongsToCheck.Count, "song")} that look already there (only copied if different)");
+        if (PresetNamesToWrite is not null) lines.Add("• Update the stage list preset names in the game's menus (the current menu files are backed up first)");
         if (StageListsToWrite.Count > 0) lines.Add($"• Update {Plural(StageListsToWrite.Count, "stage list preset")} ({string.Join(", ", StageListsToWrite.Select(i => $"Switch{i:00}"))})");
         if (SongsToDelete.Count > 0) lines.Add($"• Remove {Plural(SongsToDelete.Count, "song")} no stage uses anymore (they stay in your library)");
         if (MissingSongs.Count > 0) lines.Add($"• Warning: {Plural(MissingSongs.Count, "song")} can't be found and will be silent");
-        lines.Add("Only the music and stage list folders are changed.");
+        if (PresetNamesProblem is not null) lines.Add($"Preset names can't be updated here: {PresetNamesProblem}");
+        lines.Add("Nothing else on it is changed.");
         return string.Join(Environment.NewLine, lines);
     }
 
@@ -128,6 +136,21 @@ public static class BuildSync
             .Where(i => !File.Exists(target.StageListPath(i)) || !File.ReadAllBytes(target.StageListPath(i)).AsSpan().SequenceEqual(File.ReadAllBytes(build.StageListPath(i))))
             .ToList();
 
+        IReadOnlyList<string>? namesToWrite = null;
+        var menuFiles = new List<string>();
+        string? namesProblem = null;
+        if (build.Info.PresetNames is { } wanted)
+        {
+            var present = ProjectPlusFolder.MenuFileNames.Where(f => File.Exists(target.MenuFilePath(f))).ToList();
+            if (present.Count == 0) namesProblem = "this Project+ has no menu files (pf\\menu2\\sc_selcharacter2.pac, mu_menumain.pac).";
+            foreach (string file in present)
+            {
+                try { if (!Menu.PresetNames.Read(target.MenuFilePath(file)).SequenceEqual(wanted)) menuFiles.Add(file); }
+                catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException) { namesProblem = $"{file}: {e.Message}"; }
+            }
+            if (menuFiles.Count > 0) namesToWrite = wanted;
+        }
+
         return new SyncPlan
         {
             Build = build,
@@ -139,6 +162,9 @@ public static class BuildSync
             SongsToCheck = toCheck,
             BytesToCopy = bytesToCopy,
             StageListsToWrite = stageLists,
+            PresetNamesToWrite = namesToWrite,
+            MenuFilesToRename = menuFiles,
+            PresetNamesProblem = namesProblem,
             SongsToDelete = toDelete,
             MissingSongs = missing,
         };
@@ -149,7 +175,8 @@ public static class BuildSync
     {
         AppLibrary lib = plan.Build.Library;
         SongStore targetSongs = plan.Target.Songs;
-        int total = plan.SongsToCopy.Count + plan.SongsToCheck.Count + plan.TracklistsToWrite.Count + plan.SongsToDelete.Count + plan.StageListsToWrite.Count, done = 0;
+        int total = plan.SongsToCopy.Count + plan.SongsToCheck.Count + plan.TracklistsToWrite.Count + plan.SongsToDelete.Count + plan.StageListsToWrite.Count
+                    + (plan.PresetNamesToWrite is null ? 0 : plan.MenuFilesToRename.Count), done = 0;
 
         // 1. Songs first, so no tracklist ever points at a song that isn't there yet.
         foreach (string song in plan.SongsToCopy)
@@ -185,6 +212,25 @@ public static class BuildSync
             File.Copy(plan.Build.StageListPath(preset), dest + ".tmp", overwrite: true);
             File.Move(dest + ".tmp", dest, overwrite: true);
             progress?.Report((++done, total));
+        }
+
+        // Preset names: rebuild each menu file (checked inside Rename), back up the current one, then replace it.
+        if (plan.PresetNamesToWrite is { } names)
+        {
+            string backups = Path.Combine(lib.BackupDir, "menu");
+            Directory.CreateDirectory(backups);
+            foreach (string file in plan.MenuFilesToRename)
+            {
+                string menu = plan.Target.MenuFilePath(file), stem = Path.GetFileNameWithoutExtension(file);
+                byte[] current = File.ReadAllBytes(menu);
+                byte[] renamed = Menu.PresetNames.Rename(current, names);
+                string original = Path.Combine(backups, $"{stem}.original.pac");
+                if (!File.Exists(original)) File.WriteAllBytes(original, current);              // the first one we ever replaced
+                File.WriteAllBytes(Path.Combine(backups, $"{stem}.previous.pac"), current);     // the one just replaced
+                File.WriteAllBytes(menu + ".tmp", renamed);
+                File.Move(menu + ".tmp", menu, overwrite: true);
+                progress?.Report((++done, total));
+            }
         }
 
         // 3. Songs nothing uses anymore (target only; the library keeps them).
