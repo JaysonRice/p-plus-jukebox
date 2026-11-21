@@ -100,6 +100,64 @@ public class StageListTests(ITestOutputHelper output)
         Assert.Equal(["Fountain of Dreams"], midwest.OnStages.Where(midwest.HasHazards).Select(e => names.NameOf(e.SlotId)));
     }
 
+    // ---------- starters, counterpicks and page 1 ----------
+
+    [Fact]
+    public void RowTable_MatchesTheTournamentLayouts()
+    {
+        Assert.Equal([3, 5], StageSelectLayout.Rows(8));
+        Assert.Equal([4, 5], StageSelectLayout.Rows(9));
+        Assert.Equal([5, 5], StageSelectLayout.Rows(10));
+        Assert.Equal([7, 7, 7], StageSelectLayout.Rows(21));
+        Assert.Null(StageListLayout.RowProblem(4, 5));
+        Assert.Null(StageListLayout.RowProblem(3, 5));
+        Assert.Contains("starter(s) will sit on the counterpicks' row", StageListLayout.RowProblem(2, 5));
+        Assert.Contains("counterpick(s) will sit on the starters' row", StageListLayout.RowProblem(6, 4));
+    }
+
+    [Fact]
+    public void RealDefault_ReadsAsFourCounterpicksAndFiveStarters()
+    {
+        string file = Path.Combine(ProjectPlusRoot, "pf", "stage", "switch", "Switch00.rss");
+        if (!File.Exists(file)) { output.WriteLine("Skipped: no P+ build here"); return; }
+        var names = StageSlotNames.Load(Path.Combine(ProjectPlusRoot, "pf", "stage", "stageslot", "Stageslot IDs.txt"));
+        var layout = StageListLayout.Read(StageListFile.Load(file), null);
+
+        Assert.True(layout.FromRows);
+        Assert.Equal(["Green Hill Zone", "Fountain of Dreams", "Frigate Husk", "Dream Land"], layout.Counterpicks.Select(e => names.NameOf(e.SlotId)));
+        Assert.Equal(["Temple of Time", "Smashville", "Battlefield", "Pokemon Stadium 2", "Luigi's Mansion"], layout.Starters.Select(e => names.NameOf(e.SlotId)));
+
+        var tussle = Path.Combine(TussleSwitch, "Switch00.rss");
+        if (File.Exists(tussle)) Assert.False(StageListLayout.Read(StageListFile.Load(tussle), null).FromRows); // page 1 shows all 21
+    }
+
+    [Fact]
+    public void RealDefault_AddingATenthStage_PutsItOnPageOne()
+    {
+        string path = Path.Combine(ProjectPlusRoot, "pf", "stage", "switch", "Switch00.rss");
+        if (!File.Exists(path)) { output.WriteLine("Skipped: no P+ build here"); return; }
+        var file = StageListFile.Load(path);
+        var before = file.Entries.ToDictionary(e => e.TableIndex, e => (file.HasHazards(e), file.Entries.Count));
+        var layout = StageListLayout.Read(file, null);
+        var fd = file.Entries.Single(e => e.SlotId == 0x02); // Final Destination, on page 2
+
+        file.LayOutPageOne([.. layout.Counterpicks, fd, .. layout.Starters]);
+
+        var pageOne = file.Entries.Where(e => e.Page == 0).ToList();
+        Assert.Equal(10, pageOne.Count);
+        Assert.Equal(0x02, pageOne[4].SlotId);                                        // 5th: end of the top row
+        Assert.Equal(pageOne.Select(e => e.TableIndex), file.OnStages.Select(e => e.TableIndex)); // page 1 = the list
+        Assert.Equal(before.Count, file.Entries.Count);                                // no stage lost or doubled
+        Assert.All(file.Entries, e => Assert.Equal(before[e.TableIndex].Item1, file.HasHazards(e))); // hazards travel with the stage
+        Assert.True(StageListLayout.Read(StageListFile.FromBytes(file.ToBytes()), null).FromRows);
+
+        // Taking it back out puts it at the start of page 2 and gives the original 9 again.
+        file.LayOutPageOne([.. layout.Counterpicks.Select(c => file.Entries.Single(e => e.TableIndex == c.TableIndex)),
+                            .. layout.Starters.Select(s => file.Entries.Single(e => e.TableIndex == s.TableIndex))]);
+        Assert.Equal(9, file.OnStages.Count());
+        Assert.Equal(0x02, file.Entries.First(e => e.Page == 1).SlotId);
+    }
+
     // ---------- library and sync ----------
 
     [Fact]

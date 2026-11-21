@@ -38,6 +38,11 @@ public sealed class StageListFile
     private StageListFile(byte[] bytes)
     {
         _bytes = bytes;
+        Entries = ReadEntries();
+    }
+
+    private List<StageListEntry> ReadEntries()
+    {
         var entries = new List<StageListEntry>();
         for (int page = 0; page < MaxPages; page++)
         {
@@ -51,11 +56,65 @@ public sealed class StageListFile
                 entries.Add(new StageListEntry(page, pos, index, _bytes[at], _bytes[at + 1]));
             }
         }
-        Entries = entries;
+        return entries;
     }
 
     /// <summary>Every stage on every used page, in screen order.</summary>
-    public IReadOnlyList<StageListEntry> Entries { get; }
+    public IReadOnlyList<StageListEntry> Entries { get; private set; }
+
+    /// <summary>Most stages a page holds (its masks are 32 bits).</summary>
+    public const int MaxPerPage = 32;
+
+    /// <summary>
+    /// Makes page 1 exactly <paramref name="list"/>, in that order, with every one of them in the list (on) and every
+    /// other stage out. Stages taken off page 1 go to the start of page 2; stages moved onto it leave their old page;
+    /// everything else keeps its order. A full page spills onto the next. Each stage keeps its hazard setting.
+    /// Entries from before this call are stale afterwards: use <see cref="Entries"/> again.
+    /// </summary>
+    public void LayOutPageOne(IReadOnlyList<StageListEntry> list)
+    {
+        var listIndexes = list.Select(e => e.TableIndex).ToList();
+        if (listIndexes.Distinct().Count() != listIndexes.Count) throw new ArgumentException("A stage is in the list twice.", nameof(list));
+        if (listIndexes.Count > MaxPerPage) throw new ArgumentException($"Page 1 holds at most {MaxPerPage} stages.", nameof(list));
+        var known = Entries.ToDictionary(e => e.TableIndex);
+        if (listIndexes.Any(i => !known.ContainsKey(i))) throw new ArgumentException("That stage isn't in this file.", nameof(list));
+        var hazards = Entries.ToDictionary(e => e.TableIndex, HasHazards);
+
+        var others = Entries.Where(e => !listIndexes.Contains(e.TableIndex)).ToList();
+        var leftPageOne = others.Where(e => e.Page == 0).Select(e => e.TableIndex);
+        var rest = others.Where(e => e.Page > 0).GroupBy(e => e.Page).OrderBy(g => g.Key).Select(g => g.Select(e => e.TableIndex).ToList()).ToList();
+        if (rest.Count == 0) rest.Add([]);
+        rest[0].InsertRange(0, leftPageOne);
+
+        var pages = new List<List<int>> { listIndexes };
+        var carry = new List<int>();
+        foreach (var page in rest)
+        {
+            var items = carry.Concat(page).ToList();
+            pages.Add(items.Take(MaxPerPage).ToList());
+            carry = items.Skip(MaxPerPage).ToList();
+        }
+        while (carry.Count > 0) { pages.Add(carry.Take(MaxPerPage).ToList()); carry = carry.Skip(MaxPerPage).ToList(); }
+        if (pages.Count > MaxPages) throw new InvalidOperationException("There isn't room on the stage select pages for every stage.");
+
+        for (int p = 0; p < MaxPages; p++)
+        {
+            var items = p < pages.Count ? pages[p] : [];
+            int at = PagesAt + p * PageBytes;
+            Array.Clear(_bytes, at, PageBytes);
+            _bytes[at] = (byte)items.Count;
+            uint on = 0, hz = 0;
+            for (int i = 0; i < items.Count; i++)
+            {
+                _bytes[at + 1 + i] = (byte)items[i];
+                if (p == 0) on |= 1u << i;
+                if (hazards[items[i]]) hz |= 1u << i;
+            }
+            BinaryPrimitives.WriteUInt32BigEndian(_bytes.AsSpan(MaskAt(OnMasksAt, p)), on);
+            BinaryPrimitives.WriteUInt32BigEndian(_bytes.AsSpan(MaskAt(HazardMasksAt, p)), hz);
+        }
+        Entries = ReadEntries();
+    }
 
     public int PageCount => Entries.Count == 0 ? 0 : Entries.Max(e => e.Page) + 1;
 
@@ -103,7 +162,7 @@ public sealed class StageListFile
     /// <summary>The stages in the list (on), in screen order.</summary>
     public IEnumerable<StageListEntry> OnStages => Entries.Where(IsOn);
 
-    private int MaskAt(int start, int page) => start + page * MaskStride + MaskOffset;
+    private static int MaskAt(int start, int page) => start + page * MaskStride + MaskOffset;
 
     private bool GetBit(int start, StageListEntry e) =>
         ((BinaryPrimitives.ReadUInt32BigEndian(_bytes.AsSpan(MaskAt(start, e.Page))) >> e.Position) & 1) != 0;
@@ -115,6 +174,26 @@ public sealed class StageListFile
         mask = value ? mask | (1u << e.Position) : mask & ~(1u << e.Position);
         BinaryPrimitives.WriteUInt32BigEndian(span, mask);
     }
+}
+
+/// <summary>
+/// How the stage select screen arranges a page's stages into rows. Decoded from the stock <c>sc_selmap.pac</c>
+/// (CHR0 <c>MenSelmapPos_TopN__0</c>: frame = stage count + 1, one bone per stage in page order). Rows fill in page
+/// order, top row first.
+/// </summary>
+public static class StageSelectLayout
+{
+    // Stages per row, top to bottom, for 0..33 stages on a page.
+    private static readonly int[][] RowsByCount =
+    [
+        [], [1], [2], [3], [4], [2, 3], [3, 3], [4, 3], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5], [6, 7], [7, 7],
+        [5, 5, 5], [6, 5, 5], [6, 6, 5], [7, 6, 5], [7, 7, 5], [7, 6, 7], [7, 7, 7], [8, 7, 7], [8, 8, 7], [9, 8, 7],
+        [9, 9, 7], [9, 8, 9], [9, 9, 9], [10, 9, 9], [10, 10, 9], [10, 10, 10], [11, 10, 10], [11, 11, 10], [11, 11, 11],
+    ];
+
+    /// <summary>Stages per row, top to bottom, for a page with <paramref name="count"/> stages.</summary>
+    public static IReadOnlyList<int> Rows(int count) =>
+        count >= 0 && count < RowsByCount.Length ? RowsByCount[count] : throw new ArgumentOutOfRangeException(nameof(count));
 }
 
 /// <summary>

@@ -32,6 +32,8 @@ public sealed class BuildInfo
     /// made from a Project+ folder without a readable menu file). Sync rewrites the menu file only when these differ.
     /// </summary>
     public List<string>? PresetNames { get; set; }
+    /// <summary>Starters and counterpicks per preset (the game only stores the order of page 1).</summary>
+    public List<global::PPlusTracklistEditor.Core.Stages.PresetRoles> StageListRoles { get; set; } = [];
 }
 
 /// <summary>
@@ -75,9 +77,18 @@ public sealed class Build
         SaveInfo();
     }
 
-    /// <summary>Saves a preset, keeping the previous version in the backups folder.</summary>
-    public void SaveStageList(int preset, global::PPlusTracklistEditor.Core.Stages.StageListFile list)
+    public global::PPlusTracklistEditor.Core.Stages.PresetRoles? StageRolesFor(int preset) => Info.StageListRoles.FirstOrDefault(r => r.Preset == preset);
+
+    /// <summary>Saves a preset, keeping the previous version in the backups folder. <paramref name="roles"/> (if given) is remembered too.</summary>
+    public void SaveStageList(int preset, global::PPlusTracklistEditor.Core.Stages.StageListFile list, global::PPlusTracklistEditor.Core.Stages.PresetRoles? roles = null)
     {
+        if (roles is not null)
+        {
+            roles.Preset = preset;
+            Info.StageListRoles.RemoveAll(r => r.Preset == preset);
+            Info.StageListRoles.Add(roles);
+            SaveInfo();
+        }
         string path = StageListPath(preset);
         if (File.Exists(path))
         {
