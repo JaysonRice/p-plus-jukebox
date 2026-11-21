@@ -41,6 +41,21 @@ public sealed partial class StageListsViewModel : ObservableObject
     /// <summary>Every stage, A to Z, each with its role picker.</summary>
     public ObservableCollection<StageTileViewModel> Stages { get; } = [];
 
+    /// <summary>The list's starters and counterpicks, each in row order: two columns above the rest.</summary>
+    public ObservableCollection<StageTileViewModel> ListedStarters { get; } = [];
+    public ObservableCollection<StageTileViewModel> ListedCounterpicks { get; } = [];
+
+    /// <summary>The stages not in the list, A to Z, matching the search.</summary>
+    public ObservableCollection<StageTileViewModel> Unlisted { get; } = [];
+
+    public bool HasListed => ListedStarters.Count + ListedCounterpicks.Count > 0;
+    public bool NoMatches => Unlisted.Count == 0 && !string.IsNullOrWhiteSpace(SearchText);
+
+    /// <summary>"Find a stage": filters the stages not in the list.</summary>
+    [ObservableProperty] private string _searchText = "";
+
+    partial void OnSearchTextChanged(string value) => UpdateSections();
+
     /// <summary>The list in page order: counterpicks, then starters.</summary>
     private readonly List<StageTileViewModel> _counterpicks = [], _starters = [];
 
@@ -77,6 +92,7 @@ public sealed partial class StageListsViewModel : ObservableObject
         {
             _file = null;
             Dialogs.Error(Owner, $"This stage list couldn't be read: {e.Message}");
+            UpdateSections();
             return;
         }
 
@@ -127,6 +143,7 @@ public sealed partial class StageListsViewModel : ObservableObject
 
     internal void Refresh()
     {
+        ScheduleSections();
         PreviewRows.Clear();
         var list = _counterpicks.Concat(_starters).ToList();
         if (list.Count is > 0 and <= StageListFile.MaxPerPage)
@@ -144,6 +161,43 @@ public sealed partial class StageListsViewModel : ObservableObject
         DiscardCommand.NotifyCanExecuteChanged();
         MoveLeftCommand.NotifyCanExecuteChanged();
         MoveRightCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Fills "In this list" and the stages below it. A section is only refilled when its stages changed, so ticking a
+    /// hazards box doesn't rebuild the rows (which would lose keyboard focus).
+    /// </summary>
+    private void UpdateSections()
+    {
+        string search = SearchText.Trim();
+        Replace(ListedStarters, _starters);
+        Replace(ListedCounterpicks, _counterpicks);
+        Replace(Unlisted, Stages.Where(t => !t.InList && (search.Length == 0 || t.Name.Contains(search, StringComparison.CurrentCultureIgnoreCase))));
+        OnPropertyChanged(nameof(HasListed));
+        OnPropertyChanged(nameof(NoMatches));
+    }
+
+    private bool _sectionsPending;
+
+    /// <summary>
+    /// Refills the sections once the current input is done. A role change comes from a stage's own picker, and moving
+    /// the stage to another section removes that picker: doing it while the picker is still changing its selection
+    /// throws ("Can only change SelectedItems collection in multiple selection modes").
+    /// </summary>
+    private void ScheduleSections()
+    {
+        if (Application.Current?.Dispatcher is not { } dispatcher) { UpdateSections(); return; }
+        if (_sectionsPending) return;
+        _sectionsPending = true;
+        dispatcher.BeginInvoke(() => { _sectionsPending = false; UpdateSections(); }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private static void Replace(ObservableCollection<StageTileViewModel> section, IEnumerable<StageTileViewModel> stages)
+    {
+        var wanted = stages.ToList();
+        if (section.SequenceEqual(wanted)) return;
+        section.Clear();
+        foreach (var t in wanted) section.Add(t);
     }
 
     private static string Plural(int n, string word) => n == 1 ? $"1 {word}" : $"{n} {word}s";

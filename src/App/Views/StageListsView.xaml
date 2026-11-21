@@ -33,6 +33,66 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- A stage's box: edge colored by its role -->
+        <Style x:Key="StageBox" TargetType="Border">
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource LagoonSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LagoonRuleBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Role}" Value="{x:Static stages:StageRole.Starter}">
+                    <Setter Property="BorderBrush" Value="{DynamicResource LagoonAccentBrush}" />
+                    <Setter Property="BorderThickness" Value="2" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Role}" Value="{x:Static stages:StageRole.Counterpick}">
+                    <Setter Property="BorderBrush" Value="{DynamicResource LagoonSecondBrush}" />
+                    <Setter Property="BorderThickness" Value="2" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Hazards-on marker for listed stages, while the Hazards boxes are hidden -->
+        <Style x:Key="HazardMarker" TargetType="TextBlock">
+            <Setter Property="Text" Value="&#xE946;" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Foreground" Value="{DynamicResource LagoonSecondBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="ToolTip" Value="Hazards on" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding InList}" Value="True" />
+                        <Condition Binding="{Binding HasHazards}" Value="True" />
+                        <Condition Binding="{Binding DataContext.ShowHazards, ElementName=Root}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- A stage in the list: a half-width row in the Starters or Counterpicks column -->
+        <DataTemplate x:Key="ListedRow">
+            <Border Style="{StaticResource StageBox}" Margin="0,0,0,6" Padding="10,3">
+                <DockPanel>
+                    <ComboBox DockPanel.Dock="Right" Width="126" MinWidth="0" Padding="9,5,0,6" Margin="8,0,0,0"
+                              ItemsSource="{Binding RoleOptions}" DisplayMemberPath="Label" SelectedValuePath="Role" SelectedValue="{Binding Role}"
+                              AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: role'}" />
+                    <CheckBox DockPanel.Dock="Right" Content="Hazards on" IsChecked="{Binding HasHazards}" FontSize="12" MinWidth="0"
+                              VerticalAlignment="Center" Margin="8,0,0,0"
+                              AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}"
+                              Visibility="{Binding DataContext.ShowHazards, ElementName=Root, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource HazardMarker}"
+                               AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: hazards on'}" />
+                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -80,7 +140,8 @@
                 </DockPanel>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
+                    <!-- Right gutter: the scrollbar draws over the content, so keep the boxes clear of it -->
+                    <StackPanel Margin="0,0,16,0">
                         <!-- Page 1 preview -->
                         <Border Padding="14,10,14,12" CornerRadius="6" BorderThickness="1" Margin="0,0,0,14"
                                 BorderBrush="{DynamicResource LagoonRuleBrush}" Background="{DynamicResource LagoonSurfaceBrush}">
@@ -150,14 +211,14 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Every stage -->
+                        <!-- The stages in the list, in page order, one full-width row each -->
                         <DockPanel Margin="2,0,0,6">
                             <CheckBox DockPanel.Dock="Right" Content="Advanced: hazards" IsChecked="{Binding ShowHazards}" VerticalAlignment="Center"
                                       ToolTip="Show whether each stage starts with its hazards on" />
                             <StackPanel>
-                                <TextBlock Text="All stages" FontWeight="SemiBold" FontSize="15" />
+                                <TextBlock Text="In this list" FontWeight="SemiBold" FontSize="15" />
                                 <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                           Text="Make stages starters or counterpicks to put them in the list (up to 10). Random picks from the list, and pressing X on Random in the game bans all the others." />
+                                           Text="Random picks from these stages, and pressing X on Random in the game bans all the others." />
                             </StackPanel>
                         </DockPanel>
                         <Border Margin="0,0,0,10" Padding="10,7" CornerRadius="5" BorderThickness="1"
@@ -165,8 +226,46 @@
                             <TextBlock TextWrapping="Wrap"
                                        Text="Hazards sets whether a stage starts with its hazards on. What that changes is different on every stage, and many stages have none, so we can't tell you what it does for each one. Stages you add start with hazards off, except Fountain of Dreams." />
                         </Border>
+                        <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,8" TextWrapping="Wrap"
+                                   Text="No stages yet. Make stages below starters or counterpicks to add them (up to 10)."
+                                   Visibility="{Binding HasListed, Converter={StaticResource InverseBoolToVis}}" />
+                        <Grid Margin="0,0,0,10" Visibility="{Binding HasListed, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="2,0,0,6">
+                                    <Border Width="12" Height="12" CornerRadius="3" Background="{DynamicResource LagoonAccentBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ListedStarters.Count, StringFormat=' Starters ({0}), bottom row'}" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding ListedStarters}" ItemTemplate="{StaticResource ListedRow}" AutomationProperties.Name="Starters" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <StackPanel Orientation="Horizontal" Margin="2,0,0,6">
+                                    <Border Width="12" Height="12" CornerRadius="3" Background="{DynamicResource LagoonSecondBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ListedCounterpicks.Count, StringFormat=' Counterpicks ({0}), top row'}" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding ListedCounterpicks}" ItemTemplate="{StaticResource ListedRow}" AutomationProperties.Name="Counterpicks" />
+                            </StackPanel>
+                        </Grid>
 
-                        <ItemsControl ItemsSource="{Binding Stages}">
+                        <!-- The stages not in the list, A to Z, with a search -->
+                        <StackPanel Margin="2,4,0,8">
+                            <TextBlock Text="Add stages" FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                       Text="Make a stage a starter or counterpick to move it into the list." />
+                        </StackPanel>
+                        <Grid Margin="0,0,8,10" HorizontalAlignment="Left">
+                            <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" Width="420"
+                                     AutomationProperties.Name="Find a stage" />
+                            <TextBlock Text="Find a stage" IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.5"
+                                       Visibility="{Binding SearchText, Converter={StaticResource EmptyToVis}}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,8" Text="No stages outside the list match that."
+                                   Visibility="{Binding NoMatches, Converter={StaticResource BoolToVis}}" />
+                        <ItemsControl ItemsSource="{Binding Unlisted}" AutomationProperties.Name="Stages not in the list">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel />
@@ -174,50 +273,12 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <!-- A stage tile: edge colored by its role -->
-                                    <Border Width="278" Margin="0,0,8,8" Padding="10,6" CornerRadius="5" BorderThickness="1"
-                                            Background="{DynamicResource LagoonSurfaceBrush}">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource LagoonRuleBrush}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Role}" Value="{x:Static stages:StageRole.Starter}">
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource LagoonAccentBrush}" />
-                                                        <Setter Property="BorderThickness" Value="2" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Role}" Value="{x:Static stages:StageRole.Counterpick}">
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource LagoonSecondBrush}" />
-                                                        <Setter Property="BorderThickness" Value="2" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
+                                    <Border Style="{StaticResource StageBox}" Width="278" Margin="0,0,8,8">
                                         <StackPanel>
                                             <DockPanel>
-                                                <ComboBox DockPanel.Dock="Right" Width="126" MinWidth="0" Padding="9,5,0,6" ItemsSource="{Binding RoleOptions}" DisplayMemberPath="Label"
-                                                          SelectedValuePath="Role" SelectedValue="{Binding Role}" Margin="8,0,0,0"
+                                                <ComboBox DockPanel.Dock="Right" Width="126" MinWidth="0" Padding="9,5,0,6" Margin="8,0,0,0"
+                                                          ItemsSource="{Binding RoleOptions}" DisplayMemberPath="Label" SelectedValuePath="Role" SelectedValue="{Binding Role}"
                                                           AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: role'}" />
-                                                <!-- Hazards-on marker for listed stages, while the Hazards boxes are hidden -->
-                                                <TextBlock DockPanel.Dock="Right" Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14"
-                                                           VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource LagoonSecondBrush}"
-                                                           ToolTip="Hazards on" ToolTipService.InitialShowDelay="200" Background="Transparent"
-                                                           AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: hazards on'}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                            <Style.Triggers>
-                                                                <MultiDataTrigger>
-                                                                    <MultiDataTrigger.Conditions>
-                                                                        <Condition Binding="{Binding InList}" Value="True" />
-                                                                        <Condition Binding="{Binding HasHazards}" Value="True" />
-                                                                        <Condition Binding="{Binding DataContext.ShowHazards, ElementName=Root}" Value="False" />
-                                                                    </MultiDataTrigger.Conditions>
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                </MultiDataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
                                                 <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                             </DockPanel>
                                             <CheckBox Content="Starts with hazards on" IsChecked="{Binding HasHazards}" FontSize="12" MinWidth="0" Margin="0,4,0,0"
