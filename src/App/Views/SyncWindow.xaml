@@ -8,10 +8,13 @@
             Choose the Project+ folder to put this build's music on: your SD card, or any Project+ folder on your computer.
             Only the music is changed. Songs that no stage uses anymore are removed from there, but they stay in your library.
         </TextBlock>
-        <DockPanel Margin="0,0,0,12">
+        <DockPanel Margin="0,0,0,6">
             <Button DockPanel.Dock="Right" Content="Browse…" Click="Browse_Click" Padding="14,4" Margin="8,0,0,0" IsEnabled="{Binding IsIdle}" />
-            <TextBox Text="{Binding Folder, Mode=OneWay}" IsReadOnly="True" Padding="6,4" />
+            <Button DockPanel.Dock="Right" Content="Check again" Command="{Binding CheckAgainCommand}" Padding="14,4" Margin="8,0,0,0"
+                    Visibility="{Binding IsKnownFolderMissing, Converter={StaticResource BoolToVis}}" />
+            <TextBox Text="{Binding Folder, Mode=OneWay}" IsReadOnly="True" Padding="6,4" AutomationProperties.Name="Project+ folder" />
         </DockPanel>
+        <CheckBox Content="Always use this folder (you can change it in Settings)" IsChecked="{Binding RememberFolder}" Margin="0,0,0,12" />
         <Border Padding="12,10" CornerRadius="4" BorderThickness="1" Margin="0,0,0,12" MinHeight="70"
                 BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
             <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />

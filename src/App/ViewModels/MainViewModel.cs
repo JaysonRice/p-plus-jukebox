@@ -222,6 +222,9 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenSettings() => new SettingsWindow(new SettingsViewModel(Library)) { Owner = Owner }.ShowDialog();
+
+    [RelayCommand]
     private void Sync()
     {
         if (SelectedBuild is not { } build || !ConfirmLeaveStage()) return;

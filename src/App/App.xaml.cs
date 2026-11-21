@@ -38,6 +38,10 @@ public partial class App : Application
             return;
         }
 
+        // The light/dark choice saved in Settings (PPLUS_THEME, if set, still wins for testing).
+        if (Environment.GetEnvironmentVariable("PPLUS_THEME") is null)
+            ThemeService.Apply(SettingsViewModel.ParseTheme(library.Info.Theme));
+
         var main = new MainWindow(new MainViewModel(library, usedFallback));
         MainWindow = main;
         ShutdownMode = ShutdownMode.OnMainWindowClose;
