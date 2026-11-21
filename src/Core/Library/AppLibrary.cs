@@ -14,6 +14,14 @@ public sealed class LibraryInfo
     public string? ProjectPlusFolder { get; set; }
     /// <summary>Song paths written with '\' that the first-run import converted to '/'. Shown to the user once.</summary>
     public int FixedPathsOnImport { get; set; }
+
+    // ---- Settings (the Settings window) ----
+
+    /// <summary>Light or dark: "FollowWindows" (default, also when null), "Light" or "Dark".</summary>
+    public string? Theme { get; set; }
+
+    /// <summary>The Project+ folder "Put on my Project+" always uses, chosen in Settings. Null: each build remembers its last one.</summary>
+    public string? SyncFolder { get; set; }
 }
 
 /// <summary>Result of importing a music folder as a build.</summary>
@@ -123,6 +131,27 @@ public sealed class AppLibrary
         lib.SaveInfo();
         return lib;
     }
+
+    // ---------- Settings ----------
+
+    public void SetTheme(string theme)
+    {
+        Info.Theme = theme;
+        SaveInfo();
+    }
+
+    /// <summary>Saves (or, with null, forgets) the folder sync always uses.</summary>
+    public void SetSyncFolder(string? folder)
+    {
+        Info.SyncFolder = string.IsNullOrWhiteSpace(folder) ? null : Path.GetFullPath(folder);
+        SaveInfo();
+    }
+
+    /// <summary>
+    /// Where "Put on my Project+" should go for a build: the folder saved in Settings, else where this build was last
+    /// put, else the Project+ folder the library was first made from. Null if none is known.
+    /// </summary>
+    public string? SyncFolderFor(Build build) => Info.SyncFolder ?? build.Info.LastSyncFolder ?? Info.ProjectPlusFolder;
 
     private void SaveInfo()
     {

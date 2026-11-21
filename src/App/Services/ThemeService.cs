@@ -90,6 +90,39 @@ public static class ThemeService
         }
     }
 
+    // ---- Window caption (the strip with the title and the minimize/close buttons, drawn by Windows) ----
+
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+    private const int DwmBorderColor = 34, DwmCaptionColor = 35, DwmTextColor = 36;
+
+    /// <summary>
+    /// Paints a window's caption in the title bar green with white text, so the green band at the top of the main window
+    /// reaches the top edge. Follows light/dark changes. Windows 11 only; older Windows keeps its normal caption.
+    /// </summary>
+    public static void UseGreenCaption(Window window)
+    {
+        void Paint()
+        {
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            Set(hwnd, DwmCaptionColor, window.TryFindResource("LagoonTitleBarColor") as Color?);
+            Set(hwnd, DwmBorderColor, window.TryFindResource("LagoonTitleBarColor") as Color?);
+            Set(hwnd, DwmTextColor, window.TryFindResource("LagoonOnTitleBarColor") as Color?);
+        }
+        void OnChanged() => window.Dispatcher.BeginInvoke(Paint);
+        window.SourceInitialized += (_, _) => Paint();
+        Changed += OnChanged;
+        window.Closed += (_, _) => Changed -= OnChanged;
+    }
+
+    private static void Set(IntPtr hwnd, int attribute, Color? color)
+    {
+        if (color is not { } c) return;
+        int colorRef = c.R | (c.G << 8) | (c.B << 16); // Windows wants 0x00BBGGRR
+        _ = DwmSetWindowAttribute(hwnd, attribute, ref colorRef, sizeof(int)); // fails harmlessly before Windows 11
+    }
+
     /// <summary>A brush from the current theme, or <paramref name="fallback"/> if it isn't there (e.g. in a designer).</summary>
     public static Brush Brush(FrameworkElement element, string key, Brush fallback) =>
         element.TryFindResource(key) as Brush ?? fallback;

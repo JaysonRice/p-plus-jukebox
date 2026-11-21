@@ -242,4 +242,27 @@ public class LibraryTests
         Assert.Null(lib.FindDuplicate(t.DownloadedBrstm("other.brstm", content: 6)));         // same size, different bytes
         Assert.Null(lib.FindDuplicate(Path.Combine(t.Downloads, "missing.brstm")));
     }
+
+    // ---------- Settings ----------
+
+    [Fact]
+    public void Settings_AreSavedInTheLibrary_AndTheSavedSyncFolderWins()
+    {
+        using var t = new TempSetup();
+        t.StockProjectPlus();
+        var lib = t.CreateLibrary();
+        var ky = lib.NewBuild("Kentucky");
+        Assert.Equal(lib.Info.ProjectPlusFolder, lib.SyncFolderFor(ky));            // nothing chosen yet: where the library came from
+
+        string card = Path.Combine(t.Root, "SDCard");
+        lib.SetSyncFolder(card);
+        lib.SetTheme("Dark");
+
+        var reopened = AppLibrary.Open(t.LibraryRoot);
+        Assert.Equal(card, reopened.SyncFolderFor(reopened.GetBuild(ky.Id)));       // survives a restart, and wins
+        Assert.Equal("Dark", reopened.Info.Theme);
+
+        reopened.SetSyncFolder(null);                                                 // "Forget"
+        Assert.Equal(reopened.Info.ProjectPlusFolder, reopened.SyncFolderFor(reopened.GetBuild(ky.Id)));
+    }
 }

@@ -29,7 +29,7 @@ public sealed partial class LoopMakerViewModel(AppLibrary library, PreviewPlayer
     public bool IsEmpty => Editor is null && SavedSongPath is null;
 
     public string SavedText => SavedSongPath is null ? "" :
-        $"\"{SavedSongPath.Split('/')[^1]}\" is in your song library" +
+        $"\"{SavedSongPath.Split('/')[^1]}\" is in your Song Library" +
         (SavedSongPath.Contains('/') ? $" (series \"{SavedSongPath.Split('/')[0]}\")." : ".") +
         "\nTo use it, open a stage on the Stages tab and click \"Add from your library…\".";
 

@@ -10,8 +10,9 @@ namespace PPlusTracklistEditor.App.ViewModels;
 /// The player strip above the song library: a simple timeline of the selected song (loop shown, not editable),
 /// Play/Pause, and click-or-drag to skip around. Plays like the game: after the loop end it jumps to the loop start.
 /// </summary>
-public sealed partial class SongPreviewViewModel : ObservableObject
+public sealed partial class SongPreviewViewModel : ObservableObject, IDisposable
 {
+    public const string DefaultEmptyText = "Pick a song in the list to see and hear it here.";
     private readonly PreviewPlayer _player;
     private readonly DispatcherTimer _timer;
     private bool _playingHere;
@@ -24,10 +25,24 @@ public sealed partial class SongPreviewViewModel : ObservableObject
         _player = player;
         _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _timer.Tick += (_, _) => { if (_playingHere && _player.PositionSamples >= 0) Playhead = _player.PositionSamples; };
-        _player.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(PreviewPlayer.IsPlaying) && !_player.IsPlaying && _playingHere) StoppedHere();
-        };
+        _player.PropertyChanged += OnPlayerChanged;
+    }
+
+    private void OnPlayerChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PreviewPlayer.IsPlaying) && !_player.IsPlaying && _playingHere) StoppedHere();
+    }
+
+    /// <summary>What the bar says when there's no song to show.</summary>
+    [ObservableProperty] private string _emptyText = DefaultEmptyText;
+
+    /// <summary>Game volume (80 = normal) to play at, so a song turned up on a stage sounds louder here too.</summary>
+    public int Volume { get; private set; } = 80;
+
+    public void SetVolume(int gameVolume)
+    {
+        Volume = gameVolume;
+        if (_playingHere) _player.SetVolume(gameVolume);
     }
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSong))] private string? _title;
@@ -57,8 +72,12 @@ public sealed partial class SongPreviewViewModel : ObservableObject
     private static string TimeText_(TimeSpan t) => Core.Audio.TimeText.Format(t);
 
     /// <summary>Shows a song (or nothing, for null). Stops it if this strip was playing the previous one.</summary>
-    public async Task ShowAsync(string? file, string? title)
+    /// <param name="unavailable">With no file: why there's nothing to play (shown instead of the timeline).</param>
+    public async Task ShowAsync(string? file, string? title, string? unavailable = null, int volume = 80)
     {
+        Volume = volume;
+        EmptyText = unavailable ?? DefaultEmptyText;
+        if (file is null) title = null; // nothing to show: the bar shows EmptyText
         // Same song again (the list reloads when the tab is shown): keep it as it is, playing or not.
         if (file is not null && string.Equals(file, _file, StringComparison.OrdinalIgnoreCase) && (Audio is not null || IsLoading)) return;
         _file = file;
@@ -113,7 +132,7 @@ public sealed partial class SongPreviewViewModel : ObservableObject
             return;
         }
         int from = Playhead >= a.Length - 1 ? 0 : Playhead;
-        _player.PlayAudio(a, _loop, from, Title ?? "");
+        _player.PlayAudio(a, _loop, from, Title ?? "", Volume);
         _playingHere = true;
         _timer.Start();
         OnPropertyChanged(nameof(IsPlayingHere));
@@ -140,5 +159,12 @@ public sealed partial class SongPreviewViewModel : ObservableObject
     public void Stop()
     {
         if (_playingHere) _player.Stop();
+    }
+
+    public void Dispose()
+    {
+        Stop();
+        _timer.Stop();
+        _player.PropertyChanged -= OnPlayerChanged;
     }
 }

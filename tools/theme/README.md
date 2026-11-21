@@ -9,4 +9,4 @@ The app's colors ("Lagoon") are generated, not hand-edited.
   to `.cs`) that lists the Fluent theme brushes built from the Windows accent color; paste its output into
   `src/App/Services/AccentBrushTable.cs`. Needed again only if the .NET version changes.
 
-To try another palette, change which one `emit.js` picks (`p.id === 'lagoon'`), then rebuild.
+The app uses two colors: Lagoon green (choosing and confirming) and cobalt (listening and noticing: Play buttons, the timeline, unsaved changes), set as `SECOND` in `emit.js`. The loop end flag keeps a warm red. To try another palette, change which one `emit.js` picks (`p.id === 'lagoon'`) or `SECOND`, then run it and rebuild.

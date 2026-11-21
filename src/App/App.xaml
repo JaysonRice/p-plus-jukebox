@@ -58,6 +58,40 @@
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="ToolTipService.InitialShowDelay" Value="300" />
         </Style>
+        <!-- Play buttons: filled with the second color (cobalt), which means "listening". Built on the theme's accent
+             button, with its colors swapped for cobalt (resting, hover, pressed). -->
+        <Style x:Key="PlayButton" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Style.Resources>
+                <SolidColorBrush x:Key="AccentButtonBackground" Color="{DynamicResource LagoonSecondColor}" />
+                <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="{DynamicResource LagoonSecondHoverColor}" />
+                <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="{DynamicResource LagoonSecondPressedColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="{DynamicResource LagoonSecondColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrushPointerOver" Color="{DynamicResource LagoonSecondHoverColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="{DynamicResource LagoonSecondPressedColor}" />
+                <SolidColorBrush x:Key="AccentButtonForeground" Color="{DynamicResource LagoonOnSecondColor}" />
+                <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="{DynamicResource LagoonOnSecondColor}" />
+                <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="{DynamicResource LagoonOnSecondColor}" />
+            </Style.Resources>
+            <Setter Property="Background" Value="{DynamicResource LagoonSecondBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LagoonOnSecondBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LagoonSecondBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <!-- The sync button on the green title bar: white with green symbol in light mode, green in dark mode. -->
+        <Style x:Key="TitleBarSyncButton" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Style.Resources>
+                <SolidColorBrush x:Key="AccentButtonBackground" Color="{DynamicResource LagoonTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="{DynamicResource LagoonTitleSyncHoverColor}" />
+                <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="{DynamicResource LagoonTitleSyncPressedColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="{DynamicResource LagoonTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrushPointerOver" Color="{DynamicResource LagoonTitleSyncHoverColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="{DynamicResource LagoonTitleSyncPressedColor}" />
+                <SolidColorBrush x:Key="AccentButtonForeground" Color="{DynamicResource LagoonOnTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="{DynamicResource LagoonOnTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="{DynamicResource LagoonOnTitleSyncColor}" />
+            </Style.Resources>
+        </Style>
+
         <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Padding" Value="10,4" />
