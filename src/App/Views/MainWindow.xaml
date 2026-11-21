@@ -1,4 +1,4 @@
-﻿<Window x:Class="PPlusTracklistEditor.App.Views.MainWindow" Background="{DynamicResource LagoonWindowBrush}"
+﻿<Window x:Class="PPlusTracklistEditor.App.Views.MainWindow" Background="{DynamicResource LagoonTitleBarBrush}"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:PPlusTracklistEditor.App.ViewModels"
@@ -12,15 +12,16 @@
         <KeyBinding Key="Y" Modifiers="Control" Command="{Binding Editor.RedoCommand}" />
     </Window.InputBindings>
 
-    <DockPanel>
+    <DockPanel Background="{DynamicResource LagoonWindowBrush}">
         <!-- Top: build picker and the big actions -->
-        <Border DockPanel.Dock="Top" Padding="12,10" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
+        <!-- Top: a deep green band (the title bar) with white text -->
+        <Border DockPanel.Dock="Top" Padding="12,10" Background="{DynamicResource LagoonTitleBarBrush}" TextElement.Foreground="{DynamicResource LagoonOnTitleBarBrush}">
             <DockPanel>
                 <!-- Right: Settings (gear) and the sync button, small but filled with the main color so it stands out -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="&#xE713;" Command="{Binding OpenSettingsCommand}" Style="{StaticResource IconButton}"
                             ToolTip="Settings: light or dark, and the Project+ folder to sync to" AutomationProperties.Name="Settings" />
-                    <Button Command="{Binding SyncCommand}" Style="{DynamicResource AccentButtonStyle}" Width="38" Height="32" Padding="0"
+                    <Button Command="{Binding SyncCommand}" Style="{StaticResource TitleBarSyncButton}" Width="38" Height="32" Padding="0"
                             AutomationProperties.Name="Put on my Project+" ToolTipService.InitialShowDelay="200" ToolTipService.ShowDuration="20000">
                         <TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" />
                         <Button.ToolTip>
@@ -34,7 +35,11 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Menu VerticalAlignment="Center" Margin="0,0,16,0" Background="Transparent">
-                        <MenuItem Header="_Builds" AutomationProperties.Name="Builds menu">
+                        <MenuItem AutomationProperties.Name="Builds menu">
+                            <!-- Only the header is white (on the green band); the dropdown keeps normal text colors. -->
+                            <MenuItem.Header>
+                                <AccessText Text="_Builds" Foreground="{DynamicResource LagoonOnTitleBarBrush}" />
+                            </MenuItem.Header>
                             <MenuItem Header="_New build…" Command="{Binding NewBuildCommand}"
                                       ToolTip="Make a new build as a copy of the current one" />
                             <MenuItem Header="_Rename build…" Command="{Binding RenameBuildCommand}" />
@@ -46,7 +51,7 @@
                         </MenuItem>
                     </Menu>
                     <TextBlock Text="Current build:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" />
-                    <ComboBox ItemsSource="{Binding Builds}" SelectedItem="{Binding SelectedBuild}" DisplayMemberPath="Name"
+                    <ComboBox ItemsSource="{Binding Builds}" SelectedItem="{Binding SelectedBuild}" DisplayMemberPath="Name" Background="{DynamicResource LagoonSurfaceBrush}"
                               MinWidth="220" ToolTip="A build is a full set of stage music. Switch between them any time." />
                 </StackPanel>
             </DockPanel>

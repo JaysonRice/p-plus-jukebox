@@ -21,6 +21,12 @@
     <Color x:Key="LagoonSecondHoverColor">#7A9DF0</Color>
     <Color x:Key="LagoonSecondPressedColor">#4275EA</Color>
     <Color x:Key="LagoonOnSecondColor">#0D1311</Color>
+    <Color x:Key="LagoonTitleBarColor">#173D2B</Color>
+    <Color x:Key="LagoonOnTitleBarColor">#FFFFFF</Color>
+    <Color x:Key="LagoonTitleSyncColor">#4ABF85</Color>
+    <Color x:Key="LagoonTitleSyncHoverColor">#61C794</Color>
+    <Color x:Key="LagoonTitleSyncPressedColor">#39A26E</Color>
+    <Color x:Key="LagoonOnTitleSyncColor">#0C1D14</Color>
     <SolidColorBrush x:Key="LagoonAccentBrush" Color="#4ABF85" />
     <SolidColorBrush x:Key="LagoonOnAccentBrush" Color="#0C1D14" />
     <SolidColorBrush x:Key="LagoonSecondBrush" Color="#5E89ED" />
@@ -34,4 +40,6 @@
     <SolidColorBrush x:Key="LagoonOnEndBrush" Color="#0D1311" />
     <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#141A17" />
     <SolidColorBrush x:Key="LagoonWindowBrush" Color="#141A17" />
+    <SolidColorBrush x:Key="LagoonTitleBarBrush" Color="#173D2B" />
+    <SolidColorBrush x:Key="LagoonOnTitleBarBrush" Color="#FFFFFF" />
 </ResourceDictionary>

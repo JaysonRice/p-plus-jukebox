@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using PPlusTracklistEditor.App.Services;
 using PPlusTracklistEditor.App.ViewModels;
 
 namespace PPlusTracklistEditor.App.Views;
@@ -14,6 +15,7 @@ public partial class MainWindow : Window
     public MainWindow(MainViewModel vm)
     {
         InitializeComponent();
+        ThemeService.UseGreenCaption(this); // the caption matches the green band below it
         DataContext = _vm = vm;
         PreviewKeyDown += OnPreviewKeyDown;
         Closing += OnClosing;

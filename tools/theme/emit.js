@@ -23,6 +23,9 @@ const SECOND = { light: '#1B54DA', dark: '#5E89ED' };
 function xaml(mode, c) {
   const a = up(c.accent);
   const two = SECOND[mode];
+  const bar = mode === 'light' ? '#17633D' : '#173D2B';
+  const sync = mode === 'light' ? '#FFFFFF' : a;
+  const syncInk = mode === 'light' ? '#17633D' : up(c.accentInk);
   // Fluent picks different shades per theme (Dark1 in light, Light2 in dark); give both a sensible value.
   const shades = mode === 'light'
     ? { Dark3: shade(a, -14), Dark2: shade(a, -7), Dark1: a, Light1: shade(a, 8), Light2: shade(a, 16), Light3: shade(a, 24) }
@@ -33,12 +36,15 @@ function xaml(mode, c) {
     ['ApplicationBackgroundColor', up(c.bg)],
     // The second color (cobalt): listening and noticing. Hover/pressed shades are for the filled Play buttons.
     ['LagoonSecondColor', two], ['LagoonSecondHoverColor', shade(two, 6)], ['LagoonSecondPressedColor', shade(two, -6)], ['LagoonOnSecondColor', on(two)],
+    // Green title bar: a deep green band with white text. Its sync button is white in light mode, green in dark.
+    ['LagoonTitleBarColor', bar], ['LagoonOnTitleBarColor', '#FFFFFF'],
+    ['LagoonTitleSyncColor', sync], ['LagoonTitleSyncHoverColor', shade(sync, mode === 'light' ? -5 : 6)], ['LagoonTitleSyncPressedColor', shade(sync, -9)], ['LagoonOnTitleSyncColor', syncInk],
   ];
   const brushes = [
     ['LagoonAccentBrush', a], ['LagoonOnAccentBrush', up(c.accentInk)], ['LagoonSecondBrush', two], ['LagoonOnSecondBrush', on(two)],
     ['LagoonEndBrush', mode === 'light' ? '#C4472F' : '#EF7B66'],
     ['LagoonEmptyBrush', up(c.empty)], ['LagoonMutedBrush', up(c.muted)], ['LagoonRuleBrush', up(c.rule)],
-    ['LagoonSurfaceBrush', up(c.surface)], ['LagoonInkBrush', up(c.ink)], ['LagoonOnEndBrush', on(mode === 'light' ? '#C4472F' : '#EF7B66')], ['ApplicationBackgroundBrush', up(c.bg)], ['LagoonWindowBrush', up(c.bg)],
+    ['LagoonSurfaceBrush', up(c.surface)], ['LagoonInkBrush', up(c.ink)], ['LagoonOnEndBrush', on(mode === 'light' ? '#C4472F' : '#EF7B66')], ['ApplicationBackgroundBrush', up(c.bg)], ['LagoonWindowBrush', up(c.bg)], ['LagoonTitleBarBrush', bar], ['LagoonOnTitleBarBrush', '#FFFFFF'],
   ];
   return `<!-- Lagoon colors, ${mode} (generated from the palette page; see PLAN.md). ThemeService copies these into Application.Resources,
      so they override the Fluent theme's accent colors. Brushes use literal colors on purpose: they are copied, not referenced. -->

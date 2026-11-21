@@ -77,6 +77,20 @@
             <Setter Property="BorderBrush" Value="{DynamicResource LagoonSecondBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
+        <!-- The sync button on the green title bar: white with green symbol in light mode, green in dark mode. -->
+        <Style x:Key="TitleBarSyncButton" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Style.Resources>
+                <SolidColorBrush x:Key="AccentButtonBackground" Color="{DynamicResource LagoonTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="{DynamicResource LagoonTitleSyncHoverColor}" />
+                <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="{DynamicResource LagoonTitleSyncPressedColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="{DynamicResource LagoonTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrushPointerOver" Color="{DynamicResource LagoonTitleSyncHoverColor}" />
+                <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="{DynamicResource LagoonTitleSyncPressedColor}" />
+                <SolidColorBrush x:Key="AccentButtonForeground" Color="{DynamicResource LagoonOnTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="{DynamicResource LagoonOnTitleSyncColor}" />
+                <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="{DynamicResource LagoonOnTitleSyncColor}" />
+            </Style.Resources>
+        </Style>
         <!-- The same as a small square symbol button (the Play button in the stage toolbar). -->
         <Style x:Key="PlayIconButton" TargetType="Button" BasedOn="{StaticResource PlayButton}">
             <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
