@@ -395,6 +395,13 @@ public sealed partial class StageTileViewModel(StageListsViewModel owner, StageL
 
     public bool InList => _role != StageRole.NotInList;
 
+    /// <summary>What the hazard switch does here ("On: ... Off: ..."), or null when it isn't documented.</summary>
+    public string? HazardNote { get; } = StageHazards.NoteFor(entry.SlotId);
+
+    /// <summary>Tooltip for the hazard checkbox and the hazards-on marker.</summary>
+    public string HazardTip => HazardNote ?? "Whether this stage starts with its hazards on.";
+    public string HazardMarkerTip => HazardNote is null ? "Hazards on" : $"Hazards on. {HazardNote}";
+
     internal StageRole LoadedRole { get; private set; }
     internal int LoadedPosition { get; private set; }
     private bool _loadedHazards;
