@@ -62,7 +62,7 @@
             <Setter Property="Margin" Value="6,0,0,0" />
             <Setter Property="Foreground" Value="{DynamicResource LagoonSecondBrush}" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="ToolTip" Value="Hazards on" />
+            <Setter Property="ToolTip" Value="{Binding HazardMarkerTip}" />
             <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
@@ -79,18 +79,37 @@
         <!-- A stage in the list: a half-width row in the Starters or Counterpicks column -->
         <DataTemplate x:Key="ListedRow">
             <Border Style="{StaticResource StageBox}" Margin="0,0,0,6" Padding="10,3">
-                <DockPanel>
-                    <ComboBox DockPanel.Dock="Right" Width="126" MinWidth="0" Padding="9,5,0,6" Margin="8,0,0,0"
-                              ItemsSource="{Binding RoleOptions}" DisplayMemberPath="Label" SelectedValuePath="Role" SelectedValue="{Binding Role}"
-                              AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: role'}" />
-                    <CheckBox DockPanel.Dock="Right" Content="Hazards on" IsChecked="{Binding HasHazards}" FontSize="12" MinWidth="0"
-                              VerticalAlignment="Center" Margin="8,0,0,0"
-                              AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}"
-                              Visibility="{Binding DataContext.ShowHazards, ElementName=Root, Converter={StaticResource BoolToVis}}" />
-                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource HazardMarker}"
-                               AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: hazards on'}" />
-                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                </DockPanel>
+                <StackPanel>
+                    <DockPanel>
+                        <ComboBox DockPanel.Dock="Right" Width="126" MinWidth="0" Padding="9,5,0,6" Margin="8,0,0,0"
+                                  ItemsSource="{Binding RoleOptions}" DisplayMemberPath="Label" SelectedValuePath="Role" SelectedValue="{Binding Role}"
+                                  AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: role'}" />
+                        <CheckBox DockPanel.Dock="Right" Content="Hazards on" IsChecked="{Binding HasHazards}" FontSize="12" MinWidth="0"
+                                  VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="{Binding HazardTip}"
+                                  AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}"
+                                  Visibility="{Binding DataContext.ShowHazards, ElementName=Root, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource HazardMarker}"
+                                   AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: hazards on'}" />
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                    </DockPanel>
+                    <!-- What the hazard switch does here, while "Advanced: hazards" is ticked -->
+                    <TextBlock Text="{Binding HazardNote}" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,4">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding DataContext.ShowHazards, ElementName=Root}" Value="True" />
+                                            <Condition Binding="{Binding HazardNote, Converter={StaticResource EmptyToVis}}" Value="Collapsed" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
             </Border>
         </DataTemplate>
     </UserControl.Resources>
@@ -224,7 +243,7 @@
                         <Border Margin="0,0,0,10" Padding="10,7" CornerRadius="5" BorderThickness="1"
                                 BorderBrush="{DynamicResource LagoonSecondBrush}" Visibility="{Binding ShowHazards, Converter={StaticResource BoolToVis}}">
                             <TextBlock TextWrapping="Wrap"
-                                       Text="Hazards sets whether a stage starts with its hazards on. What that changes is different on every stage, and many stages have none, so we can't tell you what it does for each one. Stages you add start with hazards off, except Fountain of Dreams." />
+                                       Text="Hazards sets whether a stage starts with its hazards on (players can still switch them with Z on the stage select screen). Stages you add start with hazards off, except Fountain of Dreams." />
                         </Border>
                         <TextBlock Style="{StaticResource Hint}" Margin="2,0,0,8" TextWrapping="Wrap"
                                    Text="No stages yet. Make stages below starters or counterpicks to add them (up to 10)."
@@ -281,7 +300,7 @@
                                                           AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: role'}" />
                                                 <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                             </DockPanel>
-                                            <CheckBox Content="Starts with hazards on" IsChecked="{Binding HasHazards}" FontSize="12" MinWidth="0" Margin="0,4,0,0"
+                                            <CheckBox Content="Starts with hazards on" IsChecked="{Binding HasHazards}" ToolTip="{Binding HazardTip}" FontSize="12" MinWidth="0" Margin="0,4,0,0"
                                                       AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}"
                                                       Visibility="{Binding DataContext.ShowHazards, ElementName=Root, Converter={StaticResource BoolToVis}}" />
                                         </StackPanel>
