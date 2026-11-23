@@ -13,9 +13,12 @@ public static class StageSelectSpots
 {
     public const float IconWidth = 6.4f, IconHeight = 5.6f;
 
-    /// <summary>The spot of each stage in page order, for a page with <paramref name="count"/> stages (0-33).</summary>
+    /// <summary>The most stages a page can be laid out for here.</summary>
+    public static int MaxCount => Table.Length - 1;
+
+    /// <summary>The spot of each stage in page order, for a page with <paramref name="count"/> stages (0 to <see cref="MaxCount"/>).</summary>
     public static IReadOnlyList<IconSpot> For(int count) =>
-        count >= 0 && count < Table.Length ? Table[count].Select(s => new IconSpot(s.X, s.Y, s.S)).ToList()
+        count >= 0 && count < Table.Length ?Table[count].Select(s => new IconSpot(s.X, s.Y, s.S)).ToList()
                                            : throw new ArgumentOutOfRangeException(nameof(count));
 
     private static readonly (float X, float Y, float S)[][] Table =

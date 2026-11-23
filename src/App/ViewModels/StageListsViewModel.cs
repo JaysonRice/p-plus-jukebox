@@ -19,6 +19,7 @@ public sealed partial class StageListsViewModel : ObservableObject
 {
     private readonly Build _build;
     private readonly StageSlotNames _names;
+    private readonly Func<int, System.Windows.Media.ImageSource?> _iconFor;
     private StageListFile? _file;
     private string _loadedState = "";
 
@@ -26,6 +27,7 @@ public sealed partial class StageListsViewModel : ObservableObject
     {
         _build = build;
         _names = build.Library.StageNames;
+        _iconFor = StageIconCache.For(build.Library);
         foreach (int preset in build.StageListPresets()) Presets.Add(new StagePresetItem(preset));
         foreach (var p in Presets) p.Refresh(build);
         CanRename = build.CanRenamePresets;
@@ -59,8 +61,10 @@ public sealed partial class StageListsViewModel : ObservableObject
     /// <summary>The list in page order: counterpicks, then starters.</summary>
     private readonly List<StageTileViewModel> _counterpicks = [], _starters = [];
 
-    /// <summary>Page 1 as the game will draw it: rows of stages, top to bottom.</summary>
-    public ObservableCollection<IReadOnlyList<StageTileViewModel>> PreviewRows { get; } = [];
+    /// <summary>Page 1 as the game will draw it: each stage's icon at the game's spot for this many stages.</summary>
+    public ObservableCollection<PreviewIcon> PreviewIcons { get; } = [];
+    [ObservableProperty] private double _previewWidth = PreviewMaxWidth;
+    [ObservableProperty] private double _previewHeight;
 
     // ---- which preset (asks about unsaved changes first) ----
 
@@ -99,7 +103,7 @@ public sealed partial class StageListsViewModel : ObservableObject
         var layout = StageListLayout.Read(_file, _build.StageRolesFor(preset.Index));
         var tiles = _file.Entries
             .GroupBy(e => e.TableIndex).Select(g => g.First())
-            .Select(e => new StageTileViewModel(this, _file, e, _names.NameOf(e.SlotId)))
+            .Select(e => new StageTileViewModel(this, _file, e, _names.NameOf(e.SlotId), _iconFor(e.CosmeticId)))
             .ToDictionary(t => t.Entry.TableIndex);
         foreach (var e in layout.Counterpicks) { tiles[e.TableIndex].SetLoaded(StageRole.Counterpick, _counterpicks.Count); _counterpicks.Add(tiles[e.TableIndex]); }
         foreach (var e in layout.Starters) { tiles[e.TableIndex].SetLoaded(StageRole.Starter, _starters.Count); _starters.Add(tiles[e.TableIndex]); }
@@ -144,13 +148,8 @@ public sealed partial class StageListsViewModel : ObservableObject
     internal void Refresh()
     {
         ScheduleSections();
-        PreviewRows.Clear();
         var list = _counterpicks.Concat(_starters).ToList();
-        if (list.Count is > 0 and <= StageListFile.MaxPerPage)
-        {
-            int at = 0;
-            foreach (int size in StageSelectLayout.Rows(list.Count)) { PreviewRows.Add(list.Skip(at).Take(size).ToList()); at += size; }
-        }
+        LayOutPreview(list);
         Counts = list.Count == 0 ? "No stages in this list yet."
             : $"{Plural(_counterpicks.Count, "counterpick")} on top, {Plural(_starters.Count, "starter")} below";
         RowWarning = list.Count > StageListLayout.MaxStages
@@ -161,7 +160,40 @@ public sealed partial class StageListsViewModel : ObservableObject
         DiscardCommand.NotifyCanExecuteChanged();
         MoveLeftCommand.NotifyCanExecuteChanged();
         MoveRightCommand.NotifyCanExecuteChanged();
+        MakeStarterCommand.NotifyCanExecuteChanged();
+        MakeCounterpickCommand.NotifyCanExecuteChanged();
     }
+
+    // ---- the page 1 preview, true to the game ----
+
+    private const double PreviewMaxWidth = 588, PixelsPerUnit = 12;
+
+    /// <summary>
+    /// The area every list of up to 10 stages fits in (game units, y up; plus a margin), so the frame keeps its size
+    /// while stages are added. Bigger pages (stock presets) get their own bounds and a smaller scale.
+    /// </summary>
+    private static readonly (double Left, double Right, double Bottom, double Top) ListFrame = (-25.5, 23.5, -13, 6);
+
+    private void LayOutPreview(IReadOnlyList<StageTileViewModel> list)
+    {
+        PreviewIcons.Clear();
+        var spots = list.Count <= StageSelectSpots.MaxCount ? StageSelectSpots.For(list.Count) : [];
+        var frame = ListFrame;
+        if (list.Count > StageListLayout.MaxStages && spots.Count > 0)
+            frame = (spots.Min(s => s.X - Half(s).W) - 1, spots.Max(s => s.X + Half(s).W) + 1,
+                     spots.Min(s => s.Y - Half(s).H) - 1, spots.Max(s => s.Y + Half(s).H) + 1);
+        double scale = Math.Min(PixelsPerUnit, PreviewMaxWidth / (frame.Right - frame.Left));
+        PreviewWidth = (frame.Right - frame.Left) * scale;
+        PreviewHeight = (frame.Top - frame.Bottom) * scale;
+        for (int i = 0; i < spots.Count; i++)
+        {
+            var (w, h) = Half(spots[i]);
+            PreviewIcons.Add(new PreviewIcon(list[i], (spots[i].X - w - frame.Left) * scale, (frame.Top - spots[i].Y - h) * scale, 2 * w * scale, 2 * h * scale));
+        }
+    }
+
+    private static (double W, double H) Half(IconSpot s) =>
+        (StageSelectSpots.IconWidth * s.Scale / 2, StageSelectSpots.IconHeight * s.Scale / 2);
 
     /// <summary>
     /// Fills "In this list" and the stages below it. A section is only refilled when its stages changed, so ticking a
@@ -212,7 +244,9 @@ public sealed partial class StageListsViewModel : ObservableObject
     // ---- order within a row (the stage picked in the preview) ----
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(MoveLeftCommand), nameof(MoveRightCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveLeftCommand), nameof(MoveRightCommand), nameof(MakeStarterCommand),
+                                nameof(MakeCounterpickCommand), nameof(TakeOutCommand))]
+    [NotifyPropertyChangedFor(nameof(HasPicked))]
     private StageTileViewModel? _selectedStage;
 
     partial void OnSelectedStageChanged(StageTileViewModel? oldValue, StageTileViewModel? newValue)
@@ -221,8 +255,9 @@ public sealed partial class StageListsViewModel : ObservableObject
         if (newValue is not null) newValue.IsSelected = true;
     }
 
+    /// <summary>Clicking an icon picks it; clicking the picked one again lets it go.</summary>
     [RelayCommand]
-    private void SelectStage(StageTileViewModel tile) => SelectedStage = tile;
+    private void SelectStage(StageTileViewModel tile) => SelectedStage = SelectedStage == tile ? null : tile;
 
     private List<StageTileViewModel>? GroupOf(StageTileViewModel? t) =>
         t is null ? null : _counterpicks.Contains(t) ? _counterpicks : _starters.Contains(t) ? _starters : null;
@@ -243,6 +278,27 @@ public sealed partial class StageListsViewModel : ObservableObject
         g.RemoveAt(i);
         g.Insert(i + by, SelectedStage!);
         Refresh();
+    }
+
+    private bool CanMakeStarter() => SelectedStage is { Role: StageRole.Counterpick };
+    private bool CanMakeCounterpick() => SelectedStage is { Role: StageRole.Starter };
+
+    /// <summary>Moves the picked stage to the bottom row.</summary>
+    [RelayCommand(CanExecute = nameof(CanMakeStarter))]
+    private void MakeStarter() => SetPickedRole(StageRole.Starter);
+
+    /// <summary>Moves the picked stage to the top row.</summary>
+    [RelayCommand(CanExecute = nameof(CanMakeCounterpick))]
+    private void MakeCounterpick() => SetPickedRole(StageRole.Counterpick);
+
+    [RelayCommand(CanExecute = nameof(HasPicked))]
+    private void TakeOut() => SetPickedRole(StageRole.NotInList);
+
+    public bool HasPicked => SelectedStage is not null;
+
+    private void SetPickedRole(StageRole role)
+    {
+        if (SelectedStage is { } t) t.Role = role;
     }
 
     // ---- save / discard ----
@@ -358,6 +414,12 @@ public sealed partial class StagePresetItem(int index) : ObservableObject
     public override string ToString() => $"{Name}, {Details}";
 }
 
+/// <summary>A stage's icon in the page 1 preview: where it goes (pixels from the frame's top left) and how big.</summary>
+public sealed record PreviewIcon(StageTileViewModel Tile, double Left, double Top, double Width, double Height)
+{
+    public override string ToString() => Tile.Name;
+}
+
 /// <summary>A choice in a stage's role picker.</summary>
 public sealed record StageRoleOption(StageRole Role, string Label)
 {
@@ -368,10 +430,13 @@ public sealed record StageRoleOption(StageRole Role, string Label)
 }
 
 /// <summary>One stage: its role in the list, and hazards.</summary>
-public sealed partial class StageTileViewModel(StageListsViewModel owner, StageListFile file, StageListEntry entry, string name) : ObservableObject
+public sealed partial class StageTileViewModel(StageListsViewModel owner, StageListFile file, StageListEntry entry, string name,
+                                               System.Windows.Media.ImageSource? icon) : ObservableObject
 {
     public StageListEntry Entry { get; } = entry;
     public string Name { get; } = name;
+    /// <summary>Its stage select icon from the build's menu file, or null (then the name is shown instead).</summary>
+    public System.Windows.Media.ImageSource? Icon { get; } = icon;
     public IReadOnlyList<StageRoleOption> RoleOptions => StageRoleOption.All;
 
     private StageRole _role;

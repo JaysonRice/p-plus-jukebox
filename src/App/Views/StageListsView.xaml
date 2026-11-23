@@ -5,33 +5,68 @@
              x:Name="Root">
     <!-- The Stage Lists tab: the build's 8 presets on the left; on the right, page 1 as the game draws it, then every stage with its role. DataContext: StageListsViewModel. -->
     <UserControl.Resources>
-        <!-- A stage in the page 1 preview: cobalt = counterpick, green = starter; click to pick it for moving -->
-        <Style x:Key="PreviewChip" TargetType="Button">
+        <!-- A stage in the page 1 preview: its game icon framed in its role color (cobalt = counterpick, green = starter);
+             click to pick it. Without an icon, its name. -->
+        <Style x:Key="PreviewIconButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="4" />
+            <Setter Property="ToolTip" Value="{Binding Tile.Name}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Tile.Name}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Chip" MinWidth="120" Padding="12,8" CornerRadius="6" BorderThickness="3"
-                                BorderBrush="Transparent" Background="{DynamicResource LagoonAccentBrush}">
-                            <TextBlock x:Name="Label" Text="{Binding Name}" HorizontalAlignment="Center" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource LagoonOnAccentBrush}" />
-                        </Border>
+                        <Grid>
+                            <Border x:Name="Ring" Margin="-5" CornerRadius="8" BorderThickness="3" BorderBrush="Transparent" />
+                            <Border x:Name="Frame" CornerRadius="4" BorderThickness="3" Background="{DynamicResource LagoonSurfaceBrush}"
+                                    BorderBrush="{DynamicResource LagoonAccentBrush}">
+                                <Grid>
+                                    <TextBlock Text="{Binding Tile.Name}" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"
+                                               Margin="4" FontSize="12" FontWeight="SemiBold" />
+                                    <Image Source="{Binding Tile.Icon}" Stretch="Fill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                </Grid>
+                            </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
-                            <DataTrigger Binding="{Binding Role}" Value="{x:Static stages:StageRole.Counterpick}">
-                                <Setter TargetName="Chip" Property="Background" Value="{DynamicResource LagoonSecondBrush}" />
-                                <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource LagoonOnSecondBrush}" />
+                            <DataTrigger Binding="{Binding Tile.Role}" Value="{x:Static stages:StageRole.Counterpick}">
+                                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource LagoonSecondBrush}" />
                             </DataTrigger>
-                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource LagoonInkBrush}" />
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource LagoonMutedBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding Tile.IsSelected}" Value="True">
+                                <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource LagoonInkBrush}" />
                             </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Chip" Property="Opacity" Value="0.88" />
+                                <Setter TargetName="Frame" Property="Opacity" Value="0.85" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Buttons for the picked stage that only show when they apply -->
+        <Style x:Key="PickedButton" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- A stage's icon in the lists below the preview -->
+        <Style x:Key="SmallIcon" TargetType="Image">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="35" />
+            <Setter Property="Stretch" Value="Fill" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality" />
+            <Setter Property="Source" Value="{Binding Icon}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <!-- A stage's box: edge colored by its role -->
@@ -90,6 +125,7 @@
                                   Visibility="{Binding DataContext.ShowHazards, ElementName=Root, Converter={StaticResource BoolToVis}}" />
                         <TextBlock DockPanel.Dock="Right" Style="{StaticResource HazardMarker}"
                                    AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: hazards on'}" />
+                        <Image DockPanel.Dock="Left" Style="{StaticResource SmallIcon}" />
                         <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                     </DockPanel>
                     <!-- What the hazard switch does here, while "Advanced: hazards" is ticked -->
@@ -158,46 +194,57 @@
                     </StackPanel>
                 </DockPanel>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
                     <!-- Right gutter: the scrollbar draws over the content, so keep the boxes clear of it -->
                     <StackPanel Margin="0,0,16,0">
-                        <!-- Page 1 preview -->
+                        <!-- Page 1 preview: each icon where the game draws it for this many stages -->
                         <Border Padding="14,10,14,12" CornerRadius="6" BorderThickness="1" Margin="0,0,0,14"
                                 BorderBrush="{DynamicResource LagoonRuleBrush}" Background="{DynamicResource LagoonSurfaceBrush}">
                             <StackPanel>
-                                <DockPanel>
-                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="Move the picked stage" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="Page 1 in the game" FontWeight="SemiBold" FontSize="15" />
+                                <TextBlock Text="{Binding Counts}" Style="{StaticResource Hint}" />
+
+                                <Border HorizontalAlignment="Center" Margin="0,10,0,8" Padding="8" CornerRadius="6"
+                                        Background="{DynamicResource LagoonEmptyBrush}">
+                                    <ItemsControl ItemsSource="{Binding PreviewIcons}" AutomationProperties.Name="Page 1 preview" Focusable="False">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <Canvas Width="{Binding DataContext.PreviewWidth, ElementName=Root}"
+                                                        Height="{Binding DataContext.PreviewHeight, ElementName=Root}" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemContainerStyle>
+                                            <Style TargetType="ContentPresenter">
+                                                <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                                                <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                                            </Style>
+                                        </ItemsControl.ItemContainerStyle>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource PreviewIconButton}" Width="{Binding Width}" Height="{Binding Height}"
+                                                        Command="{Binding DataContext.SelectStageCommand, ElementName=Root}" CommandParameter="{Binding Tile}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+
+                                <!-- What to do with the picked stage -->
+                                <Grid MinHeight="34" HorizontalAlignment="Center">
+                                    <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center" Text="Click a stage above to move it or change its row."
+                                               Visibility="{Binding HasPicked, Converter={StaticResource InverseBoolToVis}}" />
+                                    <StackPanel Orientation="Horizontal" Visibility="{Binding HasPicked, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="{Binding SelectedStage.Name}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
                                         <Button Content="&#xE76B;" Command="{Binding MoveLeftCommand}" Style="{StaticResource IconButton}"
                                                 ToolTip="Move left in its row" AutomationProperties.Name="Move left" />
-                                        <Button Content="&#xE76C;" Command="{Binding MoveRightCommand}" Style="{StaticResource IconButton}" Margin="0"
+                                        <Button Content="&#xE76C;" Command="{Binding MoveRightCommand}" Style="{StaticResource IconButton}" Margin="0,0,10,0"
                                                 ToolTip="Move right in its row" AutomationProperties.Name="Move right" />
+                                        <Button Content="Make it a starter" Command="{Binding MakeStarterCommand}" Style="{StaticResource PickedButton}"
+                                                ToolTip="Move it to the bottom row" />
+                                        <Button Content="Make it a counterpick" Command="{Binding MakeCounterpickCommand}" Style="{StaticResource PickedButton}"
+                                                ToolTip="Move it to the top row" />
+                                        <Button Content="Take out of the list" Command="{Binding TakeOutCommand}" Style="{StaticResource PickedButton}" Margin="0" />
                                     </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="Page 1 in the game" FontWeight="SemiBold" FontSize="15" />
-                                        <TextBlock Text="{Binding Counts}" Style="{StaticResource Hint}" />
-                                    </StackPanel>
-                                </DockPanel>
-
-                                <ItemsControl ItemsSource="{Binding PreviewRows}" Margin="0,10,0,4" HorizontalAlignment="Center">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <ItemsControl ItemsSource="{Binding}" HorizontalAlignment="Center">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <StackPanel Orientation="Horizontal" />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Button Style="{StaticResource PreviewChip}" AutomationProperties.Name="{Binding Name}"
-                                                                Command="{Binding DataContext.SelectStageCommand, ElementName=Root}" CommandParameter="{Binding}" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </Grid>
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
                                     <Border Width="12" Height="12" CornerRadius="3" Background="{DynamicResource LagoonSecondBrush}" VerticalAlignment="Center" />
@@ -293,17 +340,18 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Style="{StaticResource StageBox}" Width="278" Margin="0,0,8,8">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <ComboBox DockPanel.Dock="Right" Width="126" MinWidth="0" Padding="9,5,0,6" Margin="8,0,0,0"
+                                        <DockPanel>
+                                            <Image DockPanel.Dock="Left" Style="{StaticResource SmallIcon}" Width="64" Height="56" VerticalAlignment="Top" Margin="0,0,10,0" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,0,4" />
+                                                <ComboBox Width="140" MinWidth="0" Padding="9,5,0,6" HorizontalAlignment="Left"
                                                           ItemsSource="{Binding RoleOptions}" DisplayMemberPath="Label" SelectedValuePath="Role" SelectedValue="{Binding Role}"
                                                           AutomationProperties.Name="{Binding Name, StringFormat='{}{0}: role'}" />
-                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                                            </DockPanel>
-                                            <CheckBox Content="Starts with hazards on" IsChecked="{Binding HasHazards}" ToolTip="{Binding HazardTip}" FontSize="12" MinWidth="0" Margin="0,4,0,0"
-                                                      AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}"
-                                                      Visibility="{Binding DataContext.ShowHazards, ElementName=Root, Converter={StaticResource BoolToVis}}" />
-                                        </StackPanel>
+                                                <CheckBox Content="Starts with hazards on" IsChecked="{Binding HasHazards}" ToolTip="{Binding HazardTip}" FontSize="12" MinWidth="0" Margin="0,4,0,0"
+                                                          AutomationProperties.Name="{Binding Name, StringFormat='Hazards on {0}'}"
+                                                          Visibility="{Binding DataContext.ShowHazards, ElementName=Root, Converter={StaticResource BoolToVis}}" />
+                                            </StackPanel>
+                                        </DockPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
