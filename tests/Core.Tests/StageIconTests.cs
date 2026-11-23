@@ -130,6 +130,29 @@ public class StageIconTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void RealFile_AddedStagesUseTheGamesLookup()
+    {
+        if (!File.Exists(SelMap)) { output.WriteLine("Skipped: no sc_selmap.pac"); return; }
+        var icons = StageIcons.Load(SelMap);
+        var arc = ArcArchive.Parse(Lz11.Decompress(File.ReadAllBytes(SelMap)));
+        var brres = Enumerable.Range(0, arc.Count).Select(arc.Data).Where(d => Brres.LooksLikeBrres(d)).Select(Brres.Parse)
+            .First(b => b.TexturePattern("MenSelmapIcon").Count > 0);
+        // Keyframes as BrawlCrate shows them: stock stages keep their number, P+'s added ones point at 80-98.
+        var keys = brres.TexturePattern("MenSelmapIcon").ToDictionary(k => (int)k.Frame, k => k.Texture);
+        Assert.Equal("MenSelmapIcon.01", keys[1]);
+        Assert.Equal("MenSelmapIcon.80", keys[35]);
+        Assert.Equal("MenSelmapIcon.95", keys[61]);
+        foreach (var (id, texture) in new[] { (1, "01"), (35, "80"), (49, "94"), (61, "95"), (64, "98") })
+            Assert.Equal(brres.DecodeTexture("MenSelmapIcon." + texture)!.Pixels, icons.For(id)!.Pixels);
+
+        string switchDir = Path.GetFullPath(Path.Combine(RealData.BuildSound, "..", "stage", "switch"));
+        if (!Directory.Exists(switchDir)) return;
+        var missing = Directory.GetFiles(switchDir, "Switch*.rss").SelectMany(f => StageListFile.Load(f).Entries)
+            .Select(e => e.CosmeticId).Distinct().Where(id => icons.For(id) is null).ToList();
+        Assert.Empty(missing);                                                   // every stage in the build's lists
+    }
+
+    [Fact]
     public void Library_KeepsACopyOfTheIcons()
     {
         if (!File.Exists(SelMap)) { output.WriteLine("Skipped: no sc_selmap.pac"); return; }

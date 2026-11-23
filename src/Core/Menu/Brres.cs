@@ -4,8 +4,8 @@ using System.Text;
 namespace PPlusTracklistEditor.Core.Menu;
 
 /// <summary>
-/// Read-only view of a Wii BRRES resource file (the "bres" files inside menu archives). Only finds textures (TEX0) and
-/// palettes (PLT0) by name; nothing is ever written back.
+/// Read-only view of a Wii BRRES resource file (the "bres" files inside menu archives). Only finds textures (TEX0),
+/// palettes (PLT0) and texture-swap keyframes (PAT0) by name; nothing is ever written back.
 /// </summary>
 /// <remarks>
 /// Layout (big-endian): header "bres", u16 byte-order mark, u16 pad, u32 length, u16 root offset, u16 section count.
@@ -62,6 +62,53 @@ public sealed class Brres
             for (int i = 0; i < colors; i++) palette[i] = U16(at + i * 2);
         }
         return WiiTexture.Decode(format, width, height, _data.AsSpan(dataAt), palette, paletteFormat);
+    }
+
+    /// <summary>
+    /// The keyframes of a texture-swap animation (PAT0): which texture shows from which frame on, for the first texture
+    /// slot of its first material. Empty if the file has no such animation. Menus use these as lookup tables (for the
+    /// stage icons, frame = cosmetic ID).
+    /// </summary>
+    /// <remarks>
+    /// PAT0 (version 3 or 4): +0x10 material index group, +0x14 texture name table (s32 offsets from the table's start,
+    /// texture count at +0x34 in v4, +0x30 in v3). A material entry is s32 name offset, u32 flags (4 bits per texture
+    /// slot: 1 used, 2 fixed), then one s32 per used slot: an offset from the entry to a keyframe table (u16 count, u16
+    /// pad, float scale, then count × {float frame, u16 texture index, u16 palette index}), or for a fixed slot that
+    /// {u16 texture, u16 palette} pair itself.
+    /// </remarks>
+    public IReadOnlyList<(float Frame, string Texture)> TexturePattern(string animation)
+    {
+        if (!Folder("AnmTexPat(NW4R)").TryGetValue(animation, out int pat)) return [];
+        if (!_data.AsSpan(pat, 4).SequenceEqual("PAT0"u8)) throw new InvalidDataException($"Animation {animation} is damaged.");
+        int version = I32(pat + 8);
+        int nameTable = pat + I32(pat + 0x14);
+        int textureCount = U16(pat + (version >= 4 ? 0x34 : 0x30));
+        var textures = new string[textureCount];
+        for (int i = 0; i < textureCount; i++) textures[i] = CString(nameTable + I32(nameTable + i * 4));
+
+        var material = Group(pat + I32(pat + 0x10)).FirstOrDefault();
+        if (material.Name is null) return [];
+        int entry = material.Offset;
+        uint flags = U32(entry + 4);
+        if ((flags & 1) == 0) return [];
+        string Name(int index) => index < textures.Length ? textures[index] : "";
+        if ((flags & 2) != 0) return [(0f, Name(U16(entry + 8)))];
+
+        int table = entry + I32(entry + 8);
+        int keys = U16(table);
+        var frames = new List<(float, string)>(keys);
+        for (int i = 0; i < keys; i++)
+        {
+            int key = table + 8 + i * 8;
+            frames.Add((BinaryPrimitives.ReadSingleBigEndian(_data.AsSpan(key)), Name(U16(key + 4))));
+        }
+        return frames;
+    }
+
+    private string CString(int at)
+    {
+        int end = Array.IndexOf(_data, (byte)0, at);
+        return Encoding.ASCII.GetString(_data, at, (end < 0 ? _data.Length : end) - at);
     }
 
     private Dictionary<string, int> Folder(string name) => _folders.GetValueOrDefault(name) ?? [];
