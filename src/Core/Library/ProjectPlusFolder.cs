@@ -25,6 +25,9 @@ public sealed class ProjectPlusFolder
 
     public string MenuFilePath(string fileName) => Path.Combine(Root, "pf", "menu2", fileName);
 
+    /// <summary>The stage select screen's file, which holds the stage icons (only ever read).</summary>
+    public string StageSelectMenuFile => MenuFilePath("sc_selmap.pac");
+
     /// <summary>The preset names in this folder's menu files (the first readable one), or null if none can be read.</summary>
     public IReadOnlyList<string>? ReadPresetNames()
     {

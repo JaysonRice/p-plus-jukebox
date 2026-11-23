@@ -43,6 +43,9 @@ public sealed class AppLibrary
     /// <summary>Stage slot names, copied from the Project+ folder (pf/stage/stageslot/Stageslot IDs.txt).</summary>
     public string StageNamesFile => Path.Combine(Root, "stagenames.txt");
     public Stages.StageSlotNames StageNames => Stages.StageSlotNames.Load(StageNamesFile);
+    /// <summary>A copy of the Project+ stage select file (pf/menu2/sc_selmap.pac), read only for its stage icons.</summary>
+    public string StageIconsFile => Path.Combine(Root, "sc_selmap.pac");
+    public Stages.StageIcons LoadStageIcons() => Stages.StageIcons.Load(StageIconsFile);
 
     public SongStore Songs { get; }
     public LibraryInfo Info { get; private set; }
@@ -113,6 +116,8 @@ public sealed class AppLibrary
             catch (MusicLibraryException) { }
             if (!File.Exists(StageNamesFile) && pplus is not null && File.Exists(pplus.StageSlotNamesFile))
                 File.Copy(pplus.StageSlotNamesFile, StageNamesFile);
+            if (!File.Exists(StageIconsFile) && pplus is not null && File.Exists(pplus.StageSelectMenuFile))
+                File.Copy(pplus.StageSelectMenuFile, StageIconsFile);
             IReadOnlyList<string>? names = null;
             bool namesRead = false;
             foreach (Build build in Builds())
@@ -175,6 +180,7 @@ public sealed class AppLibrary
         CopyStageLists(pplus.StageListPath, defaults);
         defaults.SetPresetNames(pplus.ReadPresetNames());
         if (File.Exists(pplus.StageSlotNamesFile)) File.Copy(pplus.StageSlotNamesFile, lib.StageNamesFile, overwrite: true);
+        if (File.Exists(pplus.StageSelectMenuFile)) File.Copy(pplus.StageSelectMenuFile, lib.StageIconsFile, overwrite: true);
 
         lib.SaveInfo();
         return lib;
