@@ -22,6 +22,9 @@ public sealed class LibraryInfo
 
     /// <summary>The Project+ folder "Put on my Project+" always uses, chosen in Settings. Null: each build remembers its last one.</summary>
     public string? SyncFolder { get; set; }
+
+    /// <summary>The build that was open last, so the app reopens it.</summary>
+    public string? LastBuildId { get; set; }
 }
 
 /// <summary>Result of importing a music folder as a build.</summary>
@@ -34,6 +37,10 @@ public sealed record ImportResult(Build Build, int FixedPaths, int RenamedSongs)
 public sealed class AppLibrary
 {
     public const string DefaultBuildName = "Default";
+    /// <summary>What the app calls the hidden build that holds the Project+ songs and presets as imported (read only).</summary>
+    public const string OriginalBuildName = "Project+ original";
+    /// <summary>The build a new library starts with, a copy of the original.</summary>
+    public const string FirstBuildName = "My build";
 
     public string Root { get; }
     public string SongsDir => Path.Combine(Root, "songs");
@@ -103,6 +110,7 @@ public sealed class AppLibrary
                    ?? throw new MusicLibraryException("The library's settings file is damaged.");
         var lib = new AppLibrary(root, info);
         lib.FillInStageLists();
+        lib.EnsureUserBuild();
         return lib;
     }
 
@@ -194,6 +202,7 @@ public sealed class AppLibrary
         lib.SaveStageAlts(pplus);
 
         lib.SaveInfo();
+        lib.EnsureUserBuild();
         return lib;
     }
 
@@ -234,10 +243,35 @@ public sealed class AppLibrary
 
     public Build DefaultBuild => new(this, Info.DefaultBuildId);
 
+    /// <summary>The builds people pick and edit: every build except the hidden Project+ original.</summary>
+    public IReadOnlyList<Build> UserBuilds() => Builds().Where(b => !b.IsDefault).ToList();
+
+    /// <summary>There's always a build to edit: a library with only the original gets "My build", a copy of it.</summary>
+    private void EnsureUserBuild()
+    {
+        if (!Directory.Exists(DefaultBuild.Dir) || UserBuilds().Count > 0) return;
+        try { NewBuild(FirstBuildName, DefaultBuild); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>The build to open: the one open last, else the first build.</summary>
+    public Build? StartBuild()
+    {
+        var builds = UserBuilds();
+        return builds.FirstOrDefault(b => b.Id == Info.LastBuildId) ?? builds.FirstOrDefault();
+    }
+
+    public void RememberOpenBuild(Build build)
+    {
+        if (Info.LastBuildId == build.Id) return;
+        Info.LastBuildId = build.Id;
+        SaveInfo();
+    }
+
     public Build GetBuild(string id) =>
         Directory.Exists(Path.Combine(BuildsDir, id)) ? new Build(this, id) : throw new MusicLibraryException("That build doesn't exist anymore.");
 
-    /// <summary>"New build": a copy of <paramref name="from"/> (the Default build if null) under a new name.</summary>
+    /// <summary>A new build: a copy of <paramref name="from"/> (the Project+ original if null) under a new name.</summary>
     public Build NewBuild(string name, Build? from = null)
     {
         from ??= DefaultBuild;
@@ -275,7 +309,8 @@ public sealed class AppLibrary
 
     public void DeleteBuild(Build build)
     {
-        if (build.IsDefault) throw new MusicLibraryException("The Default build can't be deleted. It's what new builds start from.");
+        if (build.IsDefault) throw new MusicLibraryException("The Project+ original can't be deleted. It's what new builds start from.");
+        if (UserBuilds().Count <= 1) throw new MusicLibraryException("This is your only build, so it can't be deleted. Make another build first.");
         Directory.Delete(build.Dir, recursive: true);
     }
 

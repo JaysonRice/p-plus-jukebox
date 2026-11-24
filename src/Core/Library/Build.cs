@@ -99,7 +99,8 @@ public sealed class Build
         list.Save(path);
     }
     public BuildInfo Info { get; private set; }
-    public string Name => Info.Name;
+    /// <summary>The hidden original is always shown as "Project+ original", whatever its file says.</summary>
+    public string Name => IsDefault ? AppLibrary.OriginalBuildName : Info.Name;
     public bool IsDefault => Id == Library.Info.DefaultBuildId;
 
     internal Build(AppLibrary library, string id)

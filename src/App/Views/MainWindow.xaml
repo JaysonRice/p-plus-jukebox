@@ -40,10 +40,12 @@
                                 <AccessText Text="_Builds" Foreground="{DynamicResource LagoonOnTitleBarBrush}" />
                             </MenuItem.Header>
                             <MenuItem Header="_New build…" Command="{Binding NewBuildCommand}"
+                                      ToolTip="Make a new build that starts with the songs and stage lists Project+ came with" />
+                            <MenuItem Header="_Copy this build…" Command="{Binding CopyBuildCommand}"
                                       ToolTip="Make a new build as a copy of the current one" />
                             <MenuItem Header="_Rename build…" Command="{Binding RenameBuildCommand}" />
                             <MenuItem Header="_Delete build…" Command="{Binding DeleteBuildCommand}"
-                                      ToolTip="Deletes the current build's stage song lists. The Default build can't be deleted." />
+                                      ToolTip="Deletes the current build's stage song lists. Your only build can't be deleted." />
                             <Separator />
                             <MenuItem Header="_Import a music folder…" Command="{Binding ImportMusicFolderCommand}"
                                       ToolTip="Turn a folder with strm and tracklist inside (for example from someone's build) into a new build" />
@@ -257,7 +259,7 @@
                             ToolTip="Move the selected song down" AutomationProperties.Name="Move down" />
                     <Button Content="&#xE74D;" Command="{Binding RemoveCommand}" Style="{StaticResource IconButton}"
                             ToolTip="Take the selected song off this stage. It stays in your library. (Delete key)" AutomationProperties.Name="Remove from this stage" Margin="0,0,14,0" />
-                    <Button Content="Reset to default songs" Command="{Binding ResetToDefaultCommand}" Style="{StaticResource ToolButton}" Height="32"
+                    <Button Content="Reset to the Project+ songs" Command="{Binding ResetToDefaultCommand}" Style="{StaticResource ToolButton}" Height="32"
                             Visibility="{Binding CanResetToDefault, Converter={StaticResource BoolToVis}}" />
                 </WrapPanel>
 

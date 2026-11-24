@@ -155,7 +155,7 @@ public sealed partial class StageEditorViewModel : ObservableObject
     [RelayCommand]
     private void ResetToDefault()
     {
-        if (!Dialogs.Confirm(Owner, $"Replace this stage's songs with the ones from the Default build?\n\nYou can still undo this, or discard it instead of saving.")) return;
+        if (!Dialogs.Confirm(Owner, $"Replace this stage's songs with the ones it has in Project+?\n\nYou can still undo this, or discard it instead of saving.")) return;
         History.BeforeChange();
         Session.ResetToDefault();
         Rebuild(0);

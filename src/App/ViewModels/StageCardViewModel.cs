@@ -4,7 +4,7 @@ using PPlusTracklistEditor.Core.Tlst;
 
 namespace PPlusTracklistEditor.App.ViewModels;
 
-/// <summary>One stage in the stage list: its name, how many songs it has, and whether it differs from Default.</summary>
+/// <summary>One stage in the stage list: its name, how many songs it has, and whether it differs from the Project+ original.</summary>
 public sealed partial class StageCardViewModel : ObservableObject
 {
     private readonly Build _build;

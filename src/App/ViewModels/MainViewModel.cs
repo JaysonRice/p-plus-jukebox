@@ -31,7 +31,7 @@ public sealed partial class MainViewModel : ObservableObject
         StagesView = CollectionViewSource.GetDefaultView(Stages);
         StagesView.Filter = o => o is StageCardViewModel s &&
             (string.IsNullOrWhiteSpace(SearchText) || s.DisplayName.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase));
-        ReloadBuilds(library.DefaultBuild.Id);
+        ReloadBuilds(library.StartBuild()?.Id);
     }
 
     public AppLibrary Library { get; }
@@ -73,7 +73,8 @@ public sealed partial class MainViewModel : ObservableObject
             _selectedBuild = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(WindowTitle));
-            OnPropertyChanged(nameof(CanEditBuild));
+            OnPropertyChanged(nameof(CanDeleteBuild));
+            Library.RememberOpenBuild(value);
             DeleteBuildCommand.NotifyCanExecuteChanged();
             if (_libraryTab is not null) _libraryTab.CurrentBuildName = value.Name;
             StageLists = new StageListsViewModel(value);
@@ -81,12 +82,14 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    public bool CanEditBuild => SelectedBuild is { IsDefault: false };
+    /// <summary>The last build can't be deleted: there's always one to edit.</summary>
+    public bool CanDeleteBuild => SelectedBuild is { IsDefault: false } && Builds.Count > 1;
 
-    private void ReloadBuilds(string selectId)
+    /// <summary>Lists the builds people edit (the Project+ original is hidden) and opens <paramref name="selectId"/> (else the first).</summary>
+    private void ReloadBuilds(string? selectId)
     {
         Builds.Clear();
-        foreach (var b in Library.Builds()) Builds.Add(b);
+        foreach (var b in Library.UserBuilds()) Builds.Add(b);
         _selectedBuild = null;
         SelectedBuild = Builds.FirstOrDefault(b => b.Id == selectId) ?? Builds.FirstOrDefault();
     }
@@ -186,9 +189,20 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void NewBuild()
     {
-        if (SelectedBuild is not { } from || !ConfirmLeaveAll()) return;
+        if (!ConfirmLeaveAll()) return;
         string? name = Dialogs.PromptText(Owner, "New build",
-            $"Name for the new build. It starts as a copy of \"{from.Name}\"; your songs are shared, not copied.", $"{from.Name} copy");
+            "Name for the new build. It starts with the songs and stage lists Project+ came with.", "New build");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var build = Library.NewBuild(name.Trim(), Library.DefaultBuild);
+        ReloadBuilds(build.Id);
+    }
+
+    [RelayCommand]
+    private void CopyBuild()
+    {
+        if (SelectedBuild is not { } from || !ConfirmLeaveAll()) return;
+        string? name = Dialogs.PromptText(Owner, "Copy this build",
+            $"Name for the copy of \"{from.Name}\". Your songs are shared, not copied.", $"{from.Name} copy");
         if (string.IsNullOrWhiteSpace(name)) return;
         var build = Library.NewBuild(name.Trim(), from);
         ReloadBuilds(build.Id);
@@ -204,7 +218,7 @@ public sealed partial class MainViewModel : ObservableObject
         ReloadBuilds(build.Id);
     }
 
-    [RelayCommand(CanExecute = nameof(CanEditBuild))]
+    [RelayCommand(CanExecute = nameof(CanDeleteBuild))]
     private void DeleteBuild()
     {
         if (SelectedBuild is not { IsDefault: false } build) return;
@@ -212,7 +226,7 @@ public sealed partial class MainViewModel : ObservableObject
             $"Delete the build \"{build.Name}\"?\n\nAll of this build's stage song lists will be deleted, including any unsaved changes. This can't be undone.\n\nYour songs are not deleted: they stay in your library.")) return;
         Editor = null; // its unsaved changes go with it
         Library.DeleteBuild(build);
-        ReloadBuilds(Library.DefaultBuild.Id);
+        ReloadBuilds(Library.StartBuild()?.Id);
     }
 
     [RelayCommand]

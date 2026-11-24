@@ -4,7 +4,7 @@ using PPlusTracklistEditor.Core.Library;
 
 namespace PPlusTracklistEditor.App.Views;
 
-/// <summary>First run: "Where is your Project+ folder?" then import its music as the Default build.</summary>
+/// <summary>First run: "Where is your Project+ folder?" then import its music (kept as the Project+ original, plus "My build" to edit).</summary>
 public partial class SetupWindow : Window
 {
     private readonly string _libraryRoot;
