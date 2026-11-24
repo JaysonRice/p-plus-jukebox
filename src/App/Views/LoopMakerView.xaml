@@ -17,7 +17,7 @@
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
                 <TextBlock Text="Make a looping song" Style="{StaticResource Heading}" HorizontalAlignment="Center" Margin="0,0,0,12" />
                 <TextBlock Style="{StaticResource Hint}" TextAlignment="Center" Margin="0,0,0,20"
-                           Text="Turn an MP3, WAV, FLAC or M4A into a song Project+ can play, and choose where it loops. You can also open a BRSTM to change its loop. The song is saved to your library; add it to stages from the Stages tab." />
+                           Text="Turn an MP3, WAV, FLAC or M4A into a song Project+ can play, and choose where it loops. You can also open a BRSTM to change its loop. The song is saved to your library; add it to stages from the Stage Music tab." />
                 <Button Content="Choose an audio file…" Command="{Binding ChooseFileCommand}" HorizontalAlignment="Center"
                         Padding="20,8" FontWeight="SemiBold" />
                 <TextBlock Text="or drag a file here" Style="{StaticResource Hint}" HorizontalAlignment="Center" Margin="0,10,0,0" />

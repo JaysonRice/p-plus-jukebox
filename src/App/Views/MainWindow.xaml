@@ -86,32 +86,138 @@
         </Border>
 
         <TabControl SelectedIndex="{Binding SelectedTab}" Margin="8,6,8,0">
-          <TabItem Header="Stages">
+          <TabItem Header="Stage Music">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="280" MinWidth="200" />
+                <ColumnDefinition Width="360" MinWidth="300" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left: stages -->
+            <!-- Left: a preset's stages as the game shows them, or every stage -->
             <DockPanel Margin="12,12,6,12">
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" />
-                    <TextBlock Text="Search stages" IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.5"
-                               Visibility="{Binding SearchText, Converter={StaticResource EmptyToVis}}" />
+                <ComboBox DockPanel.Dock="Top" Margin="0,0,0,10" ItemsSource="{Binding StageMap.Views}" SelectedItem="{Binding StageMap.SelectedView}"
+                          DisplayMemberPath="Name" AutomationProperties.Name="Show stages from"
+                          ToolTip="Show the stages of a stage list preset as the game lays them out, or every stage" />
+
+                <Grid>
+                <!-- A preset: its page of icons, then the picked stage's versions -->
+                <DockPanel DataContext="{Binding StageMap}" Visibility="{Binding ShowsMap, Converter={StaticResource BoolToVis}}">
+                    <ListBox DockPanel.Dock="Top" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPageChoice}" Margin="0,0,0,8"
+                             BorderThickness="0" Background="Transparent" AutomationProperties.Name="Pages"
+                             Visibility="{Binding HasPages, Converter={StaticResource BoolToVis}}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate><TextBlock Text="{Binding}" Margin="4,2" /></DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource LagoonEmptyBrush}" CornerRadius="6" Padding="0,6">
+                        <Grid>
+                            <TextBlock Text="{Binding MapNote}" Style="{StaticResource Hint}" Margin="10" TextWrapping="Wrap" HorizontalAlignment="Center" />
+                            <ItemsControl ItemsSource="{Binding Icons}" Width="{Binding MapWidthPixels}" Height="{Binding MapHeight}"
+                                          HorizontalAlignment="Center" AutomationProperties.Name="Stages on this page">
+                                <ItemsControl.Resources>
+                                    <Style x:Key="MapIconButton" TargetType="Button">
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="ToolTip" Value="{Binding Name}" />
+                                        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Grid>
+                                                        <Border x:Name="Ring" Margin="-4" CornerRadius="6" BorderThickness="3" BorderBrush="Transparent" />
+                                                        <Border x:Name="Frame" CornerRadius="3" BorderThickness="2" Background="{DynamicResource LagoonSurfaceBrush}"
+                                                                BorderBrush="{DynamicResource LagoonMutedBrush}">
+                                                            <Grid>
+                                                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"
+                                                                           Margin="2" FontSize="10" FontWeight="SemiBold" />
+                                                                <Image Source="{Binding Icon}" Stretch="Fill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                            </Grid>
+                                                        </Border>
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsKeyboardFocused" Value="True">
+                                                            <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource LagoonMutedBrush}" />
+                                                        </Trigger>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource LagoonInkBrush}" />
+                                                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource LagoonAccentBrush}" />
+                                                        </DataTrigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Frame" Property="Opacity" Value="0.85" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ItemsControl.Resources>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                                        <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:StageMapIcon}">
+                                        <Button Style="{StaticResource MapIconButton}" Width="{Binding Width}" Height="{Binding Height}"
+                                                Command="{Binding DataContext.PickIconCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock DockPanel.Dock="Top" Margin="0,12,0,0" Style="{StaticResource Hint}" TextWrapping="Wrap"
+                               Text="Click a stage above to see its music."
+                               Visibility="{Binding HasSelectedIcon, Converter={StaticResource InverseBoolToVis}}" />
+                    <StackPanel DockPanel.Dock="Top" Margin="0,12,0,6" Visibility="{Binding HasSelectedIcon, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding SelectedIcon.Name}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="Each version of a stage can have its own songs. Pick one to see them." Style="{StaticResource Hint}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Versions"
+                             Visibility="{Binding HasSelectedIcon, Converter={StaticResource BoolToVis}}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:StageVersionRow}">
+                                <StackPanel Margin="2,4">
+                                    <TextBlock Text="{Binding HowToPick}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Style="{StaticResource Hint}" FontSize="12" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Card.DisplayName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Card.Details, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+
+                <!-- Every stage: search, then every song list -->
+                <DockPanel Visibility="{Binding StageMap.ShowsEveryStage, Converter={StaticResource BoolToVis}}">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" />
+                        <TextBlock Text="Search stages" IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.5"
+                                   Visibility="{Binding SearchText, Converter={StaticResource EmptyToVis}}" />
+                    </Grid>
+                    <ListBox ItemsSource="{Binding StagesView}" SelectedItem="{Binding SelectedStage}" IsVisibleChanged="ScrollToSelected"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Stages">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:StageCardViewModel}">
+                                <StackPanel Margin="2,4">
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Details}" Style="{StaticResource Hint}" FontSize="12" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
                 </Grid>
-                <ListBox ItemsSource="{Binding StagesView}" SelectedItem="{Binding SelectedStage}"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Stages">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:StageCardViewModel}">
-                            <StackPanel Margin="2,4">
-                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding Details}" Style="{StaticResource Hint}" FontSize="12" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
             </DockPanel>
 
             <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="Transparent" />

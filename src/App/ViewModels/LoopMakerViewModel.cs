@@ -9,7 +9,7 @@ namespace PPlusTracklistEditor.App.ViewModels;
 
 /// <summary>
 /// The Loop Maker tab: pick an audio file, set its loop, save it straight into the song library. Adding it to a
-/// stage is a separate step ("Add from your library…" on the Stages tab).
+/// stage is a separate step ("Add from your library…" on the Stage Music tab).
 /// Three states: nothing open (pick a file), editing (<see cref="Editor"/>), just saved (<see cref="SavedSongPath"/>).
 /// </summary>
 public sealed partial class LoopMakerViewModel(AppLibrary library, PreviewPlayer player, Action showLibrary) : ObservableObject
@@ -31,7 +31,7 @@ public sealed partial class LoopMakerViewModel(AppLibrary library, PreviewPlayer
     public string SavedText => SavedSongPath is null ? "" :
         $"\"{SavedSongPath.Split('/')[^1]}\" is in your Song Library" +
         (SavedSongPath.Contains('/') ? $" (series \"{SavedSongPath.Split('/')[0]}\")." : ".") +
-        "\nTo use it, open a stage on the Stages tab and click \"Add from your library…\".";
+        "\nTo use it, open a stage on the Stage Music tab and click \"Add from your library…\".";
 
     /// <summary>A song is open and hasn't been saved (leaving would lose the loop points).</summary>
     public bool HasUnsavedWork => Editor is { Waveform: not null };
