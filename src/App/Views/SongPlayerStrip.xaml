@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:PPlusTracklistEditor.App.Views">
     <!-- The player bar for the selected song: title, loop, Play/Pause, a timeline you can click or drag to skip around,
-         and the time. DataContext is a SongPreviewViewModel. Used by the Song Library and the Stages tab. -->
+         and the time. DataContext is a SongPreviewViewModel. Used by the Song Library and the Stage Music tab. -->
     <Border Padding="10,8" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource LagoonRuleBrush}" Background="{DynamicResource LagoonSurfaceBrush}">
     <DockPanel>
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasSong, Converter={StaticResource BoolToVis}}">

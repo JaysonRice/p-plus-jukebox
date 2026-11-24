@@ -22,6 +22,13 @@ public partial class MainWindow : Window
         Closed += (_, _) => _vm.Player.Dispose();
     }
 
+    /// <summary>"Every stage" opened: show the open stage, which may have been picked from a preset's page.</summary>
+    private void ScrollToSelected(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (sender is ListBox { IsVisible: true, SelectedItem: { } item } list)
+            Dispatcher.BeginInvoke(() => list.ScrollIntoView(item), System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (!_vm.ConfirmLeaveAll() || !_vm.LoopMaker.ConfirmDiscard()) e.Cancel = true;

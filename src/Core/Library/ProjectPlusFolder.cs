@@ -11,6 +11,7 @@ public sealed class ProjectPlusFolder
     public string TracklistDir => Path.Combine(SoundDir, "tracklist");
     public string StrmDir => Path.Combine(SoundDir, "strm");
     public SongStore Songs => new(StrmDir);
+    public string StageDir => Path.Combine(Root, "pf", "stage");
     /// <summary>The 8 stage list presets (Switch00.rss–Switch07.rss).</summary>
     public string StageListDir => Path.Combine(Root, "pf", "stage", "switch");
     public string StageListPath(int preset) => Path.Combine(StageListDir, $"Switch{preset:00}.rss");

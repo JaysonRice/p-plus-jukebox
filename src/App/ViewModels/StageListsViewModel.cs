@@ -172,28 +172,18 @@ public sealed partial class StageListsViewModel : ObservableObject
     /// The area every list of up to 10 stages fits in (game units, y up; plus a margin), so the frame keeps its size
     /// while stages are added. Bigger pages (stock presets) get their own bounds and a smaller scale.
     /// </summary>
-    private static readonly (double Left, double Right, double Bottom, double Top) ListFrame = (-25.5, 23.5, -13, 6);
+    private static readonly StagePageLayout.Frame ListFrame = new(-25.5, 23.5, -13, 6);
 
     private void LayOutPreview(IReadOnlyList<StageTileViewModel> list)
     {
         PreviewIcons.Clear();
-        var spots = list.Count <= StageSelectSpots.MaxCount ? StageSelectSpots.For(list.Count) : [];
-        var frame = ListFrame;
-        if (list.Count > StageListLayout.MaxStages && spots.Count > 0)
-            frame = (spots.Min(s => s.X - Half(s).W) - 1, spots.Max(s => s.X + Half(s).W) + 1,
-                     spots.Min(s => s.Y - Half(s).H) - 1, spots.Max(s => s.Y + Half(s).H) + 1);
-        double scale = Math.Min(PixelsPerUnit, PreviewMaxWidth / (frame.Right - frame.Left));
-        PreviewWidth = (frame.Right - frame.Left) * scale;
-        PreviewHeight = (frame.Top - frame.Bottom) * scale;
+        var (width, height, spots) = StagePageLayout.Place(list.Count, PreviewMaxWidth, PixelsPerUnit,
+            list.Count > StageListLayout.MaxStages && list.Count <= StageSelectSpots.MaxCount ? null : ListFrame);
+        PreviewWidth = width;
+        PreviewHeight = height;
         for (int i = 0; i < spots.Count; i++)
-        {
-            var (w, h) = Half(spots[i]);
-            PreviewIcons.Add(new PreviewIcon(list[i], (spots[i].X - w - frame.Left) * scale, (frame.Top - spots[i].Y - h) * scale, 2 * w * scale, 2 * h * scale));
-        }
+            PreviewIcons.Add(new PreviewIcon(list[i], spots[i].Left, spots[i].Top, spots[i].Width, spots[i].Height));
     }
-
-    private static (double W, double H) Half(IconSpot s) =>
-        (StageSelectSpots.IconWidth * s.Scale / 2, StageSelectSpots.IconHeight * s.Scale / 2);
 
     /// <summary>
     /// Fills "In this list" and the stages below it. A section is only refilled when its stages changed, so ticking a

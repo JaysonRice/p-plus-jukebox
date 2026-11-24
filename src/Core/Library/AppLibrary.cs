@@ -46,6 +46,9 @@ public sealed class AppLibrary
     /// <summary>A copy of the Project+ stage select file (pf/menu2/sc_selmap.pac), read only for its stage icons.</summary>
     public string StageIconsFile => Path.Combine(Root, "sc_selmap.pac");
     public Stages.StageIcons LoadStageIcons() => Stages.StageIcons.Load(StageIconsFile);
+    /// <summary>Each stage slot's versions (held button → song list), read from the Project+ folder's pf/stage files.</summary>
+    public string StageAltsFile => Path.Combine(Root, "stagealts.txt");
+    public Stages.StageAltTable LoadStageAlts() => Stages.StageAltTable.Load(StageAltsFile);
 
     public SongStore Songs { get; }
     public LibraryInfo Info { get; private set; }
@@ -118,6 +121,7 @@ public sealed class AppLibrary
                 File.Copy(pplus.StageSlotNamesFile, StageNamesFile);
             if (!File.Exists(StageIconsFile) && pplus is not null && File.Exists(pplus.StageSelectMenuFile))
                 File.Copy(pplus.StageSelectMenuFile, StageIconsFile);
+            if (!File.Exists(StageAltsFile) && pplus is not null) SaveStageAlts(pplus);
             IReadOnlyList<string>? names = null;
             bool namesRead = false;
             foreach (Build build in Builds())
@@ -133,6 +137,12 @@ public sealed class AppLibrary
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    private void SaveStageAlts(ProjectPlusFolder pplus)
+    {
+        var alts = Stages.StageAltTable.FromStageFolder(pplus.StageDir);
+        if (alts.Count > 0) alts.Save(StageAltsFile);
     }
 
     private static void CopyStageLists(Func<int, string> source, Build to)
@@ -181,6 +191,7 @@ public sealed class AppLibrary
         defaults.SetPresetNames(pplus.ReadPresetNames());
         if (File.Exists(pplus.StageSlotNamesFile)) File.Copy(pplus.StageSlotNamesFile, lib.StageNamesFile, overwrite: true);
         if (File.Exists(pplus.StageSelectMenuFile)) File.Copy(pplus.StageSelectMenuFile, lib.StageIconsFile, overwrite: true);
+        lib.SaveStageAlts(pplus);
 
         lib.SaveInfo();
         return lib;

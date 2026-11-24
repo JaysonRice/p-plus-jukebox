@@ -97,13 +97,19 @@ public sealed partial class MainViewModel : ObservableObject
         _selectedStage = null;
         Editor = null;
         Stages.Clear();
+        StageMap = null;
         if (SelectedBuild is null) return;
         foreach (var info in SelectedBuild.Stages()) Stages.Add(new StageCardViewModel(SelectedBuild, info));
         // Keep the stage that was open; otherwise open the first one, so there's always something to look at on arrival.
         _selectedStage = Stages.FirstOrDefault(s => s.Name == keep) ?? Stages.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedStage));
         if (_selectedStage is not null) OpenEditor();
+        // Opens on the preset that loads first; if the open stage isn't on its page, it opens the page's first stage.
+        StageMap = new StageMapViewModel(this, SelectedBuild);
     }
+
+    /// <summary>The Stage Music tab's left side: preset, page of stage icons, the picked stage's versions.</summary>
+    [ObservableProperty] private StageMapViewModel? _stageMap;
 
     // ---- stage selection (guarded) ----
 
@@ -119,6 +125,7 @@ public sealed partial class MainViewModel : ObservableObject
             _selectedStage = value;
             OnPropertyChanged();
             OpenEditor();
+            StageMap?.OnStageChanged();
         }
     }
 
@@ -324,7 +331,7 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// "Add to a stage…" in the Song Library: pick one of the current build's stages, then go to the Stages tab with that
+    /// "Add to a stage…" in the Song Library: pick one of the current build's stages, then go to the Stage Music tab with that
     /// stage open and the song added (unsaved, so it can still be undone or reordered).
     /// </summary>
     private void AddSongToStage(string songPath, string songName)
@@ -354,7 +361,11 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (value != LoopMakerTabIndex) _loopMaker?.Pause();
         if (value == LibraryTabIndex) LibraryTab.Reload();   // builds or Loop Maker may have changed it since it was last shown
-        else if (value == StagesTabIndex) Editor?.AfterRowEdit(); // a song may have been deleted there; re-check the stage
+        else if (value == StagesTabIndex)
+        {
+            Editor?.AfterRowEdit(); // a song may have been deleted there; re-check the stage
+            StageMap?.Reload();     // a preset may have been changed or renamed on Stage Lists
+        }
     }
 
     [RelayCommand]

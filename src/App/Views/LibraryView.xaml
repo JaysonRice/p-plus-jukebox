@@ -31,7 +31,7 @@
             </WrapPanel>
         </DockPanel>
 
-        <!-- Player bar for the selected song (shared with the Stages tab) -->
+        <!-- Player bar for the selected song (shared with the Stage Music tab) -->
         <views:SongPlayerStrip DockPanel.Dock="Top" Margin="0,0,0,8" DataContext="{Binding Preview}" />
 
         <!-- Actions on the selected song -->
