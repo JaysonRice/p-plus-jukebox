@@ -73,12 +73,12 @@ public class SyncTests(ITestOutputHelper output)
         BuildSync.Execute(plan);
 
         Assert.Equal(["Radiant_Stadium"], plan.TracklistsLeftAlone);
-        Assert.Equal(["Strays/Nobody Uses Me"], plan.SongsToDelete);
+        Assert.Empty(plan.SongsToDelete);                          // not in the library (e.g. added by a P+ update): never deleted
         Assert.True(t.SdHasSong("Super Mario/Overworld_b"));      // hurry-up version of a used song survives
         Assert.True(t.SdHasSong("Pokemon/Radiant Stadium"));      // used by a tracklist the build doesn't have
         Assert.True(File.Exists(Path.Combine(t.Sound, "tracklist", "Radiant_Stadium.tlst")));
         Assert.True(File.Exists(Path.Combine(t.Sound, "strm", "readme.txt")));  // only .brstm files are ever deleted
-        Assert.False(Directory.Exists(Path.Combine(t.Sound, "strm", "Strays")));
+        Assert.True(t.SdHasSong("Strays/Nobody Uses Me"));
         Assert.Empty(plan.MissingSongs);                           // "Z01" is a disc song
     }
 
