@@ -257,7 +257,9 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (SelectedBuild is not { } build || !ConfirmLeaveAll()) return;
         Player.Stop();
-        new SyncWindow(new SyncViewModel(build)) { Owner = Owner }.ShowDialog();
+        var sync = new SyncViewModel(build);
+        new SyncWindow(sync) { Owner = Owner }.ShowDialog();
+        if (sync.UpdatedApp) ReloadBuilds(build.Id);   // new stages, songs, pictures and "changed" marks from the update
     }
 
     // ---- tabs ----

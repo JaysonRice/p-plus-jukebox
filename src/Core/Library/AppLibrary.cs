@@ -12,6 +12,8 @@ public sealed class LibraryInfo
     /// <summary>Tracklist names the user's Project+ had when imported. Used to warn about names the game won't load.</summary>
     public List<string> KnownStages { get; set; } = [];
     public string? ProjectPlusFolder { get; set; }
+    /// <summary>The Project+ version the original came from ("3.2.1"), if the folder says.</summary>
+    public string? ProjectPlusVersion { get; set; }
     /// <summary>Song paths written with '\' that the first-run import converted to '/'. Shown to the user once.</summary>
     public int FixedPathsOnImport { get; set; }
 
@@ -130,6 +132,7 @@ public sealed class AppLibrary
             if (!File.Exists(StageIconsFile) && pplus is not null && File.Exists(pplus.StageSelectMenuFile))
                 File.Copy(pplus.StageSelectMenuFile, StageIconsFile);
             if (!File.Exists(StageAltsFile) && pplus is not null) SaveStageAlts(pplus);
+            if (Info.ProjectPlusVersion is null && pplus?.ReadVersion() is { } version) { Info.ProjectPlusVersion = version; SaveInfo(); }
             IReadOnlyList<string>? names = null;
             bool namesRead = false;
             foreach (Build build in Builds())
@@ -147,7 +150,7 @@ public sealed class AppLibrary
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    private void SaveStageAlts(ProjectPlusFolder pplus)
+    internal void SaveStageAlts(ProjectPlusFolder pplus)
     {
         var alts = Stages.StageAltTable.FromStageFolder(pplus.StageDir);
         if (alts.Count > 0) alts.Save(StageAltsFile);
@@ -180,6 +183,7 @@ public sealed class AppLibrary
             CreatedAt = DateTime.Now,
             KnownStages = pplus.TracklistNames().Order(StringComparer.OrdinalIgnoreCase).ToList(),
             ProjectPlusFolder = pplus.Root,
+            ProjectPlusVersion = pplus.ReadVersion(),
         };
         var lib = new AppLibrary(root, info);
         Directory.CreateDirectory(lib.SongsDir);
@@ -227,7 +231,7 @@ public sealed class AppLibrary
     /// </summary>
     public string? SyncFolderFor(Build build) => Info.SyncFolder ?? build.Info.LastSyncFolder ?? Info.ProjectPlusFolder;
 
-    private void SaveInfo()
+    internal void SaveInfo()
     {
         Directory.CreateDirectory(Root);
         File.WriteAllText(InfoFile, JsonSerializer.Serialize(Info, Build.Json));
@@ -242,6 +246,14 @@ public sealed class AppLibrary
             .ToList();
 
     public Build DefaultBuild => new(this, Info.DefaultBuildId);
+
+    /// <summary>Stage song lists a Project+ update brought: the app now knows them (no "not in your Project+" warning).</summary>
+    internal void AddKnownStages(IEnumerable<string> names)
+    {
+        foreach (string name in names) KnownStages.Add(name);
+        Info.KnownStages = KnownStages.Order(StringComparer.OrdinalIgnoreCase).ToList();
+        SaveInfo();
+    }
 
     /// <summary>The builds people pick and edit: every build except the hidden Project+ original.</summary>
     public IReadOnlyList<Build> UserBuilds() => Builds().Where(b => !b.IsDefault).ToList();
