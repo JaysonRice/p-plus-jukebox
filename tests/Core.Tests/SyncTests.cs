@@ -43,8 +43,13 @@ public class SyncTests(ITestOutputHelper output)
         Assert.Equal(["Temple_of_Time"], plan.TracklistsToWrite);
         Assert.Equal(["Zelda/New 1", "Zelda/New 2", "Zelda/New 3"], plan.SongsToCopy);
         Assert.Equal(["Zelda/ToT 2", "Zelda/ToT 3", "Zelda/ToT 4"], plan.SongsToDelete);
+        // Space used by the songs the user added (Project+'s ToT 1 and 5 aren't counted).
+        Assert.Equal(["Zelda/New 1", "Zelda/New 2", "Zelda/New 3"], plan.CustomSongs);
+        Assert.Equal(plan.CustomSongs.Sum(s => new FileInfo(lib.Songs.FileFor(s)).Length), plan.CustomBytes);
+        Assert.Contains("Songs you added to \"Tennessee\": 3 songs", plan.Summary());
 
         BuildSync.Execute(plan);
+        Assert.Contains("Songs you added", BuildSync.Plan(tn, t.ProjectPlus).Summary());   // shown when up to date too
 
         foreach (string kept in new[] { "Zelda/ToT 1", "Zelda/ToT 5", "Zelda/New 1", "Zelda/New 2", "Zelda/New 3" }) Assert.True(t.SdHasSong(kept), kept);
         foreach (string gone in new[] { "Zelda/ToT 2", "Zelda/ToT 3", "Zelda/ToT 4" })

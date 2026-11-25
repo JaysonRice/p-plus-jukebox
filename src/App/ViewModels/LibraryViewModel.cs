@@ -24,6 +24,7 @@ public abstract class LibraryRow : ObservableObject
     public virtual string NameTooltip => "";
     public virtual string Series => "";
     public virtual string LengthText => "";
+    public virtual string SizeText => "";
     public virtual string LoopText => "";
     public virtual string UsedByText => "";
     /// <summary>How many builds use the song (the "Builds" column); empty for series header rows.</summary>
@@ -83,6 +84,9 @@ public sealed partial class LibrarySongItem : LibraryRow
     public IReadOnlyList<string> UsedBy { get; }
     /// <summary>The song comes with Project+ (the Project+ original uses it).</summary>
     public bool IsProjectPlusSong { get; }
+    /// <summary>The song file's size in bytes.</summary>
+    public long Size { get; init; }
+    public override string SizeText => Core.SizeText.Of(Size);
     public DateTime Added { get; }
 
     /// <summary>The name, with a * after it for the few songs that don't loop (hover for the explanation).</summary>
@@ -247,6 +251,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         new("Name", "Song", (a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)),
         new("Series", "Series", (a, b) => string.Compare(a.Group.SortKey, b.Group.SortKey, StringComparison.OrdinalIgnoreCase)), // "No series" last
         new("Length", "Length", (a, b) => Nullable.Compare(a.Length, b.Length), DefaultDescending: true, Unknown: s => s.Length is null),
+        new("Size", "Size", (a, b) => a.Size.CompareTo(b.Size), DefaultDescending: true),
         new("Date added", "Added", (a, b) => a.Added.CompareTo(b.Added), DefaultDescending: true),
         new("Build count", "Build count", (a, b) => a.UsedBy.Count.CompareTo(b.UsedBy.Count), DefaultDescending: true),
     ];
@@ -365,7 +370,7 @@ public sealed partial class LibraryViewModel : ObservableObject
             if (usedBy.Count == 0 && SongStore.HurryUpBase(path) is { } main && usage.TryGetValue(main, out var mb)) usedBy = mb;
             string file = _library.Songs.FileFor(path);
             bool stock = projectPlusSongs.Contains(path) || (SongStore.HurryUpBase(path) is { } m && projectPlusSongs.Contains(m));
-            var item = new LibrarySongItem(path, file, group, usedBy, stock, File.GetCreationTime(file));
+            var item = new LibrarySongItem(path, file, group, usedBy, stock, File.GetCreationTime(file)) { Size = new FileInfo(file).Length };
             if (InfoCache.TryGetValue((file, File.GetLastWriteTimeUtc(file)), out var cached)) item.Info = cached;
             _songs.Add(item);
         }
