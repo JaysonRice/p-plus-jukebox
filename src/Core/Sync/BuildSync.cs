@@ -46,12 +46,12 @@ public sealed class SyncPlan
         if (!HasChanges) return $"\"{Build.Name}\" is already up to date in {Target.Root}. Nothing to do.";
         var lines = new List<string> { $"Sync \"{Build.Name}\" to {Target.Root}:" };
         if (TracklistsToWrite.Count > 0) lines.Add($"• Update {Plural(TracklistsToWrite.Count, "stage song list")}");
-        if (SongsToCopy.Count > 0) lines.Add($"• Copy {Plural(SongsToCopy.Count, "song")} ({SizeText(BytesToCopy)}, about {TimeText(BytesToCopy)} to an SD card)");
+        if (SongsToCopy.Count > 0) lines.Add($"• Copy {Plural(SongCount(SongsToCopy), "song")} ({SizeText(BytesToCopy)}, about {TimeText(BytesToCopy)} to an SD card)");
         if (SongsToCheck.Count > 0) lines.Add($"• Check {Plural(SongsToCheck.Count, "song")} that look already there (only copied if different)");
         if (PresetNamesToWrite is not null) lines.Add("• Update the stage list preset names in the game's menus (the current menu files are backed up first)");
         if (StageListsToWrite.Count > 0) lines.Add($"• Update {Plural(StageListsToWrite.Count, "stage list preset")} ({string.Join(", ", StageListsToWrite.Select(i => $"Switch{i:00}"))})");
-        if (SongsToDelete.Count > 0) lines.Add($"• Remove {Plural(SongsToDelete.Count, "song")} no stage uses anymore (they stay in your library)");
-        if (MissingSongs.Count > 0) lines.Add($"• Warning: {Plural(MissingSongs.Count, "song")} can't be found and will be silent");
+        if (SongsToDelete.Count > 0) lines.Add($"• Remove {Plural(SongCount(SongsToDelete), "song")} no stage uses anymore (they stay in your library)");
+        if (MissingSongs.Count > 0) lines.Add($"• Warning: {Plural(SongCount(MissingSongs), "song")} can't be found and will be silent");
         if (PresetNamesProblem is not null) lines.Add($"Preset names can't be updated here: {PresetNamesProblem}");
         lines.Add("Nothing else on it is changed.");
         return string.Join(Environment.NewLine, lines);
@@ -65,6 +65,10 @@ public sealed class SyncPlan
         double minutes = bytes / (1.5 * (1 << 20)) / 60;
         return minutes < 1 ? "less than a minute" : minutes < 1.5 ? "1 minute" : $"{Math.Round(minutes)} minutes";
     }
+
+    /// <summary>A song and its hurry-up version ("_b") count as one song.</summary>
+    private static int SongCount(IEnumerable<string> paths) =>
+        paths.Select(p => SongStore.HurryUpBase(p) ?? p).Distinct(StringComparer.OrdinalIgnoreCase).Count();
 
     private static string Plural(int n, string word) => n == 1 ? $"1 {word}" : $"{n} {word}s";
 }
