@@ -7,7 +7,7 @@ namespace PPlusTracklistEditor.App.Services;
 /// <summary>Message boxes and file/folder pickers in one place, all with the app's title.</summary>
 public static class Dialogs
 {
-    public const string AppTitle = "P+ Tracklist Editor";
+    public const string AppTitle = "P+ Jukebox";
 
     public static void Info(Window? owner, string message) => Show(owner, message, MessageBoxButton.OK, MessageBoxImage.Information);
     public static void Error(Window? owner, string message) => Show(owner, message, MessageBoxButton.OK, MessageBoxImage.Warning);

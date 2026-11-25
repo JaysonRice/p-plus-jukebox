@@ -6,3 +6,5 @@ TestResults/
 # Not committed (workspace rules)
 PLAN.md
 CLAUDE.md
+
+dist/
