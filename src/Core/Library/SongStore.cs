@@ -16,10 +16,24 @@ public sealed class SongStore(string dir)
 
     public string Dir { get; } = Path.GetFullPath(dir);
 
+    /// <summary>
+    /// The file for a song path. Song paths come from tracklists, which can be hand-made or downloaded, so a path that
+    /// would leave this folder (<c>../x</c>, <c>C:/x</c>) is refused instead of being followed.
+    /// </summary>
     public string FileFor(string songPath) =>
-        Path.Combine(Dir, songPath.Replace('/', Path.DirectorySeparatorChar) + Extension);
+        TryFileFor(songPath) ?? throw new MusicLibraryException($"The song path \"{songPath}\" points outside the music folder, so it was skipped.");
 
-    public bool Has(string songPath) => File.Exists(FileFor(songPath));
+    /// <summary>False for a song path that would leave this folder (see <see cref="FileFor"/>).</summary>
+    public bool IsSafe(string songPath) => TryFileFor(songPath) is not null;
+
+    private string? TryFileFor(string songPath)
+    {
+        string full = Path.GetFullPath(Path.Combine(Dir, songPath.Replace('/', Path.DirectorySeparatorChar) + Extension));
+        string root = Dir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full : null;
+    }
+
+    public bool Has(string songPath) => TryFileFor(songPath) is { } file && File.Exists(file);
 
     /// <summary>Every song path in the store (includes "_b" files).</summary>
     public IEnumerable<string> All() =>
