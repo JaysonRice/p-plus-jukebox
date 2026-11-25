@@ -78,6 +78,7 @@ tools/      theme generator, release script
 ## Credits
 
 - Disc song names: BrawlManagers `SongIDMap` (MIT, © 2014 libertyernie).
+- File formats: thanks to the [BrawlCrate / BrawlLib](https://github.com/soopercool101/BrawlCrate) project and the Brawl and Project+ modding community, whose tools and documentation made these formats understandable.
 - UI: CommunityToolkit.Mvvm (MIT, © .NET Foundation).
 - Audio: VGAudio (MIT, © Alex Barney) for BRSTM/DSP-ADPCM; NAudio (MIT, © Mark Heath) for decoding, resampling and playback.
 
