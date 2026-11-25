@@ -94,7 +94,9 @@ public class SyncTests(ITestOutputHelper output)
         s.Save();
         var before = SnapshotOutsideSound(t);
 
-        BuildSync.Execute(BuildSync.Plan(tn, t.ProjectPlus));
+        SyncPlan plan = BuildSync.Plan(tn, t.ProjectPlus);
+        Assert.Contains("Remove 1 song ", plan.Summary());           // Overworld + its "_b" = 1 song
+        BuildSync.Execute(plan);
 
         Assert.Equal(before, SnapshotOutsideSound(t));
         Assert.False(t.SdHasSong("Super Mario/Overworld"));
@@ -116,6 +118,7 @@ public class SyncTests(ITestOutputHelper output)
 
         Assert.Equal(2, plan.TracklistsToWrite.Count);
         Assert.Equal(4, plan.SongsToCopy.Count);                    // 3 songs + the "_b"
+        Assert.Contains("Copy 3 songs", plan.Summary());             // ...which the summary counts as 3 songs
         Assert.True(File.Exists(Path.Combine(other, "pf", "sound", "strm", "Super Mario", "Overworld_b.brstm")));
         Assert.False(BuildSync.Plan(lib.DefaultBuild, ProjectPlusFolder.Resolve(other)).HasChanges);
     }

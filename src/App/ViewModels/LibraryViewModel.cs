@@ -60,12 +60,13 @@ public sealed partial class SeriesGroup(string key) : LibraryRow
 /// <summary>One song in the library list.</summary>
 public sealed partial class LibrarySongItem : LibraryRow
 {
-    public LibrarySongItem(string songPath, string filePath, SeriesGroup group, IReadOnlyList<string> usedBy, DateTime added)
+    public LibrarySongItem(string songPath, string filePath, SeriesGroup group, IReadOnlyList<string> usedBy, bool isProjectPlusSong, DateTime added)
     {
         SongPath = songPath;
         FilePath = filePath;
         _group = group;
         UsedBy = usedBy;
+        IsProjectPlusSong = isProjectPlusSong;
         Added = added;
         int slash = songPath.LastIndexOf('/');
         Name = slash < 0 ? songPath : songPath[(slash + 1)..];
@@ -78,7 +79,10 @@ public sealed partial class LibrarySongItem : LibraryRow
     public string SongPath { get; }
     public string Name { get; }
     public string FilePath { get; }
+    /// <summary>Your builds that use the song (the hidden Project+ original doesn't count).</summary>
     public IReadOnlyList<string> UsedBy { get; }
+    /// <summary>The song comes with Project+ (the Project+ original uses it).</summary>
+    public bool IsProjectPlusSong { get; }
     public DateTime Added { get; }
 
     /// <summary>The name, with a * after it for the few songs that don't loop (hover for the explanation).</summary>
@@ -90,9 +94,10 @@ public sealed partial class LibrarySongItem : LibraryRow
     public override string AddedText => Added.ToString("d");
     public override string UsedByText => UsedBy.Count == 0 ? "Not used by any build" : "Used by " + string.Join(", ", UsedBy);
     public override string BuildCountText => UsedBy.Count.ToString();
-    public override string BuildsTooltip => UsedBy.Count == 0
+    public override string BuildsTooltip => (UsedBy.Count == 0
         ? "Not used by any build"
-        : (UsedBy.Count == 1 ? "Used by 1 build:" : $"Used by {UsedBy.Count} builds:") + string.Concat(UsedBy.Select(b => "\n• " + b));
+        : (UsedBy.Count == 1 ? "Used by 1 build:" : $"Used by {UsedBy.Count} builds:") + string.Concat(UsedBy.Select(b => "\n• " + b)))
+        + (IsProjectPlusSong ? "\n\nThis song comes with Project+." : "");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LengthText), nameof(LoopText), nameof(DisplayText), nameof(NameTooltip), nameof(DoesNotLoop))]
@@ -206,10 +211,23 @@ public sealed partial class LibraryViewModel : ObservableObject
         OnPropertyChanged(nameof(Usage));
     }
 
-    /// <summary>Search + "Show" filter (not collapsing).</summary>
+    /// <summary>Picking songs for a stage: only songs the current build doesn't have yet (on by default).</summary>
+    [ObservableProperty] private bool _onlyNotInBuild = true;
+    partial void OnOnlyNotInBuildChanged(bool value) => RefreshView();
+
+    /// <summary>Picking songs for a stage: hide the songs that come with Project+ (on by default).</summary>
+    [ObservableProperty] private bool _hideProjectPlusSongs = true;
+    partial void OnHideProjectPlusSongsChanged(bool value) => RefreshView();
+
+    /// <summary>Search + "Show" filter (not collapsing). Picking uses the "Not in this build yet" checkbox instead of "Show".</summary>
     private bool Matches(LibrarySongItem s)
     {
-        if (Usage is { } u && !u.Matches(s)) return false;
+        if (IsPicking)
+        {
+            if (OnlyNotInBuild && CurrentBuildName is { } build && s.UsedBy.Contains(build)) return false;
+            if (HideProjectPlusSongs && s.IsProjectPlusSong) return false;
+        }
+        else if (Usage is { } u && !u.Matches(s)) return false;
         if (string.IsNullOrWhiteSpace(SearchText)) return true;
         string haystack = s.Name + " " + s.Series;
         return SearchText.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w => haystack.Contains(w, StringComparison.OrdinalIgnoreCase));
@@ -321,7 +339,8 @@ public sealed partial class LibraryViewModel : ObservableObject
     /// <summary>Re-reads the library and which builds use what (call when the tab is shown; builds may have changed).</summary>
     public void Reload()
     {
-        var builds = _library.Builds();
+        var builds = _library.UserBuilds();
+        var projectPlusSongs = _library.DefaultBuild.SongPathsUsed().ToHashSet(StringComparer.OrdinalIgnoreCase);
         var usage = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var build in builds)
             foreach (var path in build.SongPathsUsed())
@@ -345,7 +364,8 @@ public sealed partial class LibraryViewModel : ObservableObject
             // A "_b" hurry-up file counts as used when its main song is.
             if (usedBy.Count == 0 && SongStore.HurryUpBase(path) is { } main && usage.TryGetValue(main, out var mb)) usedBy = mb;
             string file = _library.Songs.FileFor(path);
-            var item = new LibrarySongItem(path, file, group, usedBy, File.GetCreationTime(file));
+            bool stock = projectPlusSongs.Contains(path) || (SongStore.HurryUpBase(path) is { } m && projectPlusSongs.Contains(m));
+            var item = new LibrarySongItem(path, file, group, usedBy, stock, File.GetCreationTime(file));
             if (InfoCache.TryGetValue((file, File.GetLastWriteTimeUtc(file)), out var cached)) item.Info = cached;
             _songs.Add(item);
         }
@@ -431,6 +451,11 @@ public sealed partial class LibraryViewModel : ObservableObject
         if (row.UsedBy.Count > 0)
         {
             Dialogs.Info(owner, $"\"{row.Name}\" can't be deleted because it's still used by: {string.Join(", ", row.UsedBy)}.\n\nRemove it from those stages first.");
+            return;
+        }
+        if (row.IsProjectPlusSong)
+        {
+            Dialogs.Info(owner, $"\"{row.Name}\" can't be deleted because it comes with Project+. Keeping it lets you reset a stage to its Project+ songs.");
             return;
         }
         if (!Dialogs.Confirm(owner, $"Delete \"{row.Name}\" from your library for good?\n\nNo build uses it. This can't be undone.")) return;
