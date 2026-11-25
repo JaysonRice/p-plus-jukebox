@@ -29,7 +29,7 @@ Before this, adding a song meant downloading a BRSTM, naming it exactly right, d
 ## Install and first run
 
 1. Download the zip from the [Releases page](../../releases) and **unzip it** to a folder you'll keep, such as `Documents\P+ Jukebox`. Don't run it from inside the zip.
-2. Open `PPlusJukebox.exe`.
+2. Open `PPlusJukebox.exe`. It's the only program in the folder. The first start takes a few seconds longer than usual.
 3. Windows may say **"Windows protected your PC"**, because the app isn't signed. Click **More info**, then **Run anyway**.
 4. The first time, the app asks for your Project+ folder. It copies your current songs and stage lists into its library, so you start with everything you already have.
 

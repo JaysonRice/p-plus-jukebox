@@ -7,7 +7,7 @@ $version = @($proj.Project.PropertyGroup | ForEach-Object { $_.Version } | Where
 $name = "P+ Jukebox $version"
 $out = Join-Path $root "dist\$name"
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-dotnet publish (Join-Path $root 'src\App') -c Release -r win-x64 --self-contained true -o $out
+dotnet publish (Join-Path $root 'src\App') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o $out
 if ($LASTEXITCODE -ne 0) { throw 'publish failed' }
 # Never ship a library (songs, builds) or debug symbols.
 if (Test-Path (Join-Path $out 'Library')) { throw 'A Library folder ended up in the build; refusing to zip it.' }
