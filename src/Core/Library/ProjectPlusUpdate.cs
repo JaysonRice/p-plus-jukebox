@@ -64,6 +64,12 @@ public static class ProjectPlusUpdate
 {
     public static ProjectPlusChanges Check(AppLibrary lib, ProjectPlusFolder folder)
     {
+        // Only a different Project+ version counts as an update. With the same version, any difference is the user's
+        // own (e.g. a card synced before the app kept sync records, or an old file left on the card), never Project+'s.
+        string? oldVersion = lib.Info.ProjectPlusVersion, newVersion = folder.ReadVersion();
+        if (oldVersion is null || newVersion is null || ProjectPlusChanges.SameVersion(oldVersion, newVersion))
+            return new ProjectPlusChanges { Folder = folder, OldVersion = oldVersion, NewVersion = newVersion, NewStages = [], ChangedStages = [], ChangedPresets = [], NewSongs = [] };
+
         Build original = lib.DefaultBuild;
         var builds = lib.UserBuilds();
         var record = SyncRecord.Load(lib, folder.Root);
@@ -114,8 +120,8 @@ public static class ProjectPlusUpdate
         return new ProjectPlusChanges
         {
             Folder = folder,
-            OldVersion = lib.Info.ProjectPlusVersion,
-            NewVersion = folder.ReadVersion(),
+            OldVersion = oldVersion,
+            NewVersion = newVersion,
             NewStages = newStages,
             ChangedStages = changedStages,
             ChangedPresets = changedPresets,

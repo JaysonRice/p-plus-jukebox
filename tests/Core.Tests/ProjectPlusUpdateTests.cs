@@ -38,6 +38,11 @@ public class ProjectPlusUpdateTests
         // Also without a sync record (synced before the app kept them): equal to a build's copy = theirs.
         Directory.Delete(Path.Combine(lib.Root, "syncs"), recursive: true);
         Assert.False(ProjectPlusUpdate.Check(lib, t.ProjectPlus).HasChanges);
+
+        // Same version, but the card has an older sync of the build (edited since) and a leftover file: still the user's.
+        t.SdTracklist("Temple_of_Time", Song(0xF000, "Zelda/Temple of Time 1"), Song(0xF001, "Zelda/Temple of Time 2"));
+        t.SdTracklist("Temple", Song(0xF000, "Zelda/Temple of Time 1"));
+        Assert.False(ProjectPlusUpdate.Check(lib, t.ProjectPlus).HasChanges);
     }
 
     [Fact]
