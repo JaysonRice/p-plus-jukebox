@@ -1,4 +1,4 @@
-﻿<Window x:Class="PPlusTracklistEditor.App.Views.MainWindow" Background="{DynamicResource LagoonTitleBarBrush}"
+<Window x:Class="PPlusTracklistEditor.App.Views.MainWindow" Background="{DynamicResource LagoonTitleBarBrush}"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:PPlusTracklistEditor.App.ViewModels"
@@ -260,7 +260,9 @@
                     <Button Content="&#xE74D;" Command="{Binding RemoveCommand}" Style="{StaticResource IconButton}"
                             ToolTip="Take the selected song off this stage. It stays in your library. (Delete key)" AutomationProperties.Name="Remove from this stage" Margin="0,0,14,0" />
                     <Button Content="Reset to the Project+ songs" Command="{Binding ResetToDefaultCommand}" Style="{StaticResource ToolButton}" Height="32"
-                            Visibility="{Binding CanResetToDefault, Converter={StaticResource BoolToVis}}" />
+                            Visibility="{Binding CanResetToDefault, Converter={StaticResource BoolToVis}}" Margin="0,0,14,0" />
+                    <TextBlock Text="{Binding BuildSpaceText}" VerticalAlignment="Center" Opacity="0.75"
+                               ToolTip="The songs you added to this build (not Project+'s own songs), with their faster versions: about how much space they take on your SD card. Updates as you edit." />
                 </WrapPanel>
 
                 <!-- Problems, in sentences -->

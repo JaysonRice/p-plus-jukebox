@@ -144,15 +144,7 @@ public static class BuildSync
             .ToList();
 
         // The build's own songs that don't come with Project+: the "how much space do my songs take" line.
-        var projectPlusSongs = build.IsDefault ? null : build.Library.DefaultBuild.SongPathsUsed().ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var buildSongs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string name in buildTracklists) AddPaths(buildSongs, build.TracklistPath(name));
-        var custom = new List<string>();
-        long customBytes = 0;
-        if (projectPlusSongs is not null)
-            foreach (string song in buildSongs.Where(s => !projectPlusSongs.Contains(s)).Order(StringComparer.OrdinalIgnoreCase))
-                foreach (string p in new[] { song, song + SongStore.HurryUpSuffix })
-                    if (lib.Songs.Has(p)) { custom.Add(p); customBytes += new FileInfo(lib.Songs.FileFor(p)).Length; }
+        SongSpace custom = SongSpace.Of(build);
 
         var stageLists = build.StageListPresets()
             .Where(i => !File.Exists(target.StageListPath(i)) || !File.ReadAllBytes(target.StageListPath(i)).AsSpan().SequenceEqual(File.ReadAllBytes(build.StageListPath(i))))
@@ -189,8 +181,8 @@ public static class BuildSync
             PresetNamesProblem = namesProblem,
             SongsToDelete = toDelete,
             MissingSongs = missing,
-            CustomSongs = custom,
-            CustomBytes = customBytes,
+            CustomSongs = custom.Files,
+            CustomBytes = custom.Bytes,
         };
     }
 
