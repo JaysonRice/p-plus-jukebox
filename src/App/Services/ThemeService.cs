@@ -45,7 +45,7 @@ public static class ThemeService
 
         var colors = new ResourceDictionary
         {
-            Source = new Uri($"pack://application:,,,/PPlusTracklistEditor;component/Themes/Lagoon.{(dark ? "Dark" : "Light")}.xaml"),
+            Source = new Uri($"pack://application:,,,/{typeof(ThemeService).Assembly.GetName().Name};component/Themes/Lagoon.{(dark ? "Dark" : "Light")}.xaml"),
         };
         foreach (object key in colors.Keys) app.Resources[key] = colors[key];
         OverrideAccentBrushes(app, colors, dark);
