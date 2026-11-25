@@ -38,15 +38,19 @@ public sealed class SyncPlan
     /// <summary>Songs a tracklist uses that are neither in the library nor on the target: those stages would play silence.</summary>
     public required IReadOnlyList<string> MissingSongs { get; init; }
 
+    /// <summary>Songs the build uses that don't come with Project+ (with their "_b" versions), and their total size in the library.</summary>
+    public IReadOnlyList<string> CustomSongs { get; init; } = [];
+    public long CustomBytes { get; init; }
+
     public bool HasChanges => TracklistsToWrite.Count + SongsToCopy.Count + SongsToCheck.Count + SongsToDelete.Count + StageListsToWrite.Count > 0 || PresetNamesToWrite is not null;
 
     /// <summary>A short plain-language description for the confirm dialog.</summary>
     public string Summary()
     {
-        if (!HasChanges) return $"\"{Build.Name}\" is already up to date in {Target.Root}. Nothing to do.";
+        if (!HasChanges) return $"\"{Build.Name}\" is already up to date in {Target.Root}. Nothing to do." + CustomSpaceText();
         var lines = new List<string> { $"Sync \"{Build.Name}\" to {Target.Root}:" };
         if (TracklistsToWrite.Count > 0) lines.Add($"• Update {Plural(TracklistsToWrite.Count, "stage song list")}");
-        if (SongsToCopy.Count > 0) lines.Add($"• Copy {Plural(SongCount(SongsToCopy), "song")} ({SizeText(BytesToCopy)}, about {TimeText(BytesToCopy)} to an SD card)");
+        if (SongsToCopy.Count > 0) lines.Add($"• Copy {Plural(SongCount(SongsToCopy), "song")} ({SizeText.Of(BytesToCopy)}, about {TimeText(BytesToCopy)} to an SD card)");
         if (SongsToCheck.Count > 0) lines.Add($"• Check {Plural(SongsToCheck.Count, "song")} that look already there (only copied if different)");
         if (PresetNamesToWrite is not null) lines.Add("• Update the stage list preset names in the game's menus (the current menu files are backed up first)");
         if (StageListsToWrite.Count > 0) lines.Add($"• Update {Plural(StageListsToWrite.Count, "stage list preset")} ({string.Join(", ", StageListsToWrite.Select(i => $"Switch{i:00}"))})");
@@ -54,10 +58,12 @@ public sealed class SyncPlan
         if (MissingSongs.Count > 0) lines.Add($"• Warning: {Plural(SongCount(MissingSongs), "song")} can't be found and will be silent");
         if (PresetNamesProblem is not null) lines.Add($"Preset names can't be updated here: {PresetNamesProblem}");
         lines.Add("Nothing else on it is changed.");
-        return string.Join(Environment.NewLine, lines);
+        return string.Join(Environment.NewLine, lines) + CustomSpaceText();
     }
 
-    private static string SizeText(long bytes) => bytes >= 1L << 30 ? $"{bytes / (double)(1L << 30):0.0} GB" : $"{Math.Max(1, bytes >> 20)} MB";
+    /// <summary>How much space the songs you added take (Project+'s own songs aren't counted).</summary>
+    private string CustomSpaceText() => CustomSongs.Count == 0 ? ""
+        : $"{Environment.NewLine}{Environment.NewLine}Songs you added to \"{Build.Name}\": {Plural(SongCount(CustomSongs), "song")}, {SizeText.Of(CustomBytes)} (Project+'s own songs not counted).";
 
     /// <summary>Rough time at ~1.5 MB/s, a typical write speed for small files on an SD card in a USB reader.</summary>
     private static string TimeText(long bytes)
@@ -137,6 +143,9 @@ public static class BuildSync
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // The build's own songs that don't come with Project+: the "how much space do my songs take" line.
+        SongSpace custom = SongSpace.Of(build);
+
         var stageLists = build.StageListPresets()
             .Where(i => !File.Exists(target.StageListPath(i)) || !File.ReadAllBytes(target.StageListPath(i)).AsSpan().SequenceEqual(File.ReadAllBytes(build.StageListPath(i))))
             .ToList();
@@ -172,6 +181,8 @@ public static class BuildSync
             PresetNamesProblem = namesProblem,
             SongsToDelete = toDelete,
             MissingSongs = missing,
+            CustomSongs = custom.Files,
+            CustomBytes = custom.Bytes,
         };
     }
 

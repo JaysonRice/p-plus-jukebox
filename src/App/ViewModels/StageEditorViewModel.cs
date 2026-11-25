@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -23,6 +23,11 @@ public sealed partial class StageEditorViewModel : ObservableObject
         Session = session;
         History = new EditHistory(session);
         Preview = new SongPreviewViewModel(main.Player);
+        // For the live "your songs" total: the other stages' songs and Project+'s songs don't change while this one is edited.
+        _projectPlusSongs = SongSpace.ProjectPlusSongs(session.Build.Library);
+        foreach (string name in session.Build.TracklistNames().Where(n => !string.Equals(n, session.StageName, StringComparison.OrdinalIgnoreCase)))
+            foreach (var e in Core.Tlst.TlstFile.Load(session.Build.TracklistPath(name)).Entries)
+                if (e.Path is not null) _otherStagesSongs.Add(SongStore.Normalize(e.Path));
         Rebuild(select: 0); // first song selected, so its settings are visible right away
     }
 
@@ -37,6 +42,19 @@ public sealed partial class StageEditorViewModel : ObservableObject
     public string BuildName => Session.Build.Name;
     public bool IsDirty => Session.IsDirty;
     public bool CanResetToDefault => Session.CanResetToDefault;
+
+    private readonly HashSet<string> _projectPlusSongs;
+    private readonly HashSet<string> _otherStagesSongs = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>"Your songs in this build: 91 songs, 388 MB", including this stage's unsaved changes.</summary>
+    public string BuildSpaceText
+    {
+        get
+        {
+            var songs = _otherStagesSongs.Concat(Session.Tracklist.Entries.Where(e => e.Path is not null).Select(e => SongStore.Normalize(e.Path!)));
+            return $"Your songs in this build: {SongSpace.Of(Session.Build.Library, songs, _projectPlusSongs).Text}";
+        }
+    }
 
     public ObservableCollection<SongRowViewModel> Songs { get; } = [];
     public ObservableCollection<Problem> Problems { get; } = [];
@@ -79,6 +97,7 @@ public sealed partial class StageEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(HasErrors));
         OnPropertyChanged(nameof(HasNoProblems));
         OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(BuildSpaceText));
         UndoCommand.NotifyCanExecuteChanged();
         RedoCommand.NotifyCanExecuteChanged();
         SaveCommand.NotifyCanExecuteChanged();
