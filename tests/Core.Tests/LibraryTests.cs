@@ -71,9 +71,12 @@ public class LibraryTests
 
         Assert.Equal(["Super Mario/Overworld", "Super Mario/Overworld_b", "Zelda/Temple of Time 1", "Zelda/Temple of Time 2"],
                      lib.Songs.All().Order());
-        Build def = Assert.Single(lib.Builds());
-        Assert.True(def.IsDefault);
-        Assert.Equal("Default", def.Name);
+        Build def = lib.DefaultBuild;                         // the hidden original, plus a build to edit that starts as a copy of it
+        Assert.Equal("Project+ original", def.Name);
+        Build mine = Assert.Single(lib.UserBuilds());
+        Assert.Equal(["Project+ original", "My build"], lib.Builds().Select(b => b.Name));
+        Assert.Equal(File.ReadAllBytes(def.TracklistPath("Temple_of_Time")), File.ReadAllBytes(mine.TracklistPath("Temple_of_Time")));
+        Assert.Equal(mine.Id, lib.StartBuild()!.Id);
         Assert.Equal(["Mushroom_Kingdom", "Temple_of_Time"], def.TracklistNames().Order());
         Assert.Equal(File.ReadAllBytes(Path.Combine(t.Sound, "tracklist", "Temple_of_Time.tlst")),
                      File.ReadAllBytes(def.TracklistPath("Temple_of_Time")));
@@ -107,12 +110,12 @@ public class LibraryTests
         session.Remove(session.Tracklist.Entries[0]);
         session.Save();
 
-        Assert.Equal(["Default", "Kentucky Build"], lib.Builds().Select(b => b.Name));
+        Assert.Equal(["Project+ original", "Kentucky Build", "My build"], lib.Builds().Select(b => b.Name));
         Assert.Equal(2, ky.OpenStage("Temple_of_Time").Tracklist.Entries.Count);
         Assert.Equal(3, lib.DefaultBuild.OpenStage("Temple_of_Time").Tracklist.Entries.Count);
         Assert.True(ky.Stages().Single(s => s.Name == "Temple_of_Time").ChangedFromDefault);
         Assert.False(ky.Stages().Single(s => s.Name == "Mushroom_Kingdom").ChangedFromDefault);
-        Assert.Equal("Default", ky.Info.CopiedFrom);
+        Assert.Equal("Project+ original", ky.Info.CopiedFrom);
     }
 
     [Fact]
@@ -130,7 +133,11 @@ public class LibraryTests
         Build copy = lib.NewBuild("Kentucky", from: tn);
         Assert.Equal("Tennessee Build", copy.Info.CopiedFrom);
         lib.DeleteBuild(tn);
-        Assert.Equal(["Default", "Kentucky"], lib.Builds().Select(b => b.Name));
+        Assert.Equal(["Kentucky", "My build"], lib.UserBuilds().Select(b => b.Name));
+        lib.DeleteBuild(lib.UserBuilds().Single(b => b.Name == "My build"));
+        Assert.Throws<MusicLibraryException>(() => lib.DeleteBuild(copy));         // the last build stays
+        lib.RememberOpenBuild(copy);
+        Assert.Equal(copy.Id, AppLibrary.Open(lib.Root).StartBuild()!.Id);
         copy.Rename("Kentucky Build");
         Assert.Equal("Kentucky Build", lib.GetBuild(copy.Id).Name);
     }
@@ -146,10 +153,10 @@ public class LibraryTests
         Build ky = lib.NewBuild("Kentucky");
 
         var ex = Assert.Throws<MusicLibraryException>(() => lib.DeleteSong("Super Mario/Overworld"));
-        Assert.Contains("Default, Kentucky", ex.Message);
-        Assert.Equal(2, lib.BuildsUsing("Super Mario/Overworld_b").Count); // "_b" counts as its main song
+        Assert.Contains("Project+ original, Kentucky, My build", ex.Message);
+        Assert.Equal(3, lib.BuildsUsing("Super Mario/Overworld_b").Count); // "_b" counts as its main song
 
-        foreach (Build b in new[] { lib.DefaultBuild, ky })
+        foreach (Build b in lib.Builds())
         {
             var s = b.OpenStage("Mushroom_Kingdom");
             s.Remove(s.Tracklist.Entries.Single(e => e.Path == "Super Mario/Overworld"));

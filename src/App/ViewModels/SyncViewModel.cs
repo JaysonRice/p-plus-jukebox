@@ -57,6 +57,7 @@ public sealed partial class SyncViewModel : ObservableObject
     private SyncPlan? _plan;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UpdateAppCommand))]
     [NotifyCanExecuteChangedFor(nameof(SyncCommand))]
     [NotifyPropertyChangedFor(nameof(IsIdle))]
     private bool _isBusy;
@@ -68,15 +69,60 @@ public sealed partial class SyncViewModel : ObservableObject
         Folder = picked;
         IsKnownFolderMissing = false;
         Plan = null;
+        Changes = null;
         IsDone = false;
         IsBusy = true;
         Summary = "Checking what needs to change…";
         try
         {
-            Plan = await Task.Run(() => BuildSync.Plan(Build, ProjectPlusFolder.Resolve(picked)));
+            var target = ProjectPlusFolder.Resolve(picked);
+            (Plan, Changes) = await Task.Run(() => (BuildSync.Plan(Build, target), CheckForUpdate(target)));
             Summary = Plan.Summary();
         }
         catch (MusicLibraryException ex) { Summary = ex.Message; }
+        finally { IsBusy = false; }
+    }
+
+    // ---- Project+ updates ----
+
+    /// <summary>What this Project+ has that the app's Project+ original doesn't (e.g. after a Project+ update), or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUpdate), nameof(UpdateText))]
+    [NotifyCanExecuteChangedFor(nameof(UpdateAppCommand))]
+    private ProjectPlusChanges? _changes;
+
+    public bool HasUpdate => Changes is { HasChanges: true };
+    public string UpdateText => Changes?.Summary() ?? "";
+
+    /// <summary>True once "Update the app" ran: the main window reloads the build afterwards.</summary>
+    public bool UpdatedApp { get; private set; }
+
+    private ProjectPlusChanges? CheckForUpdate(ProjectPlusFolder target)
+    {
+        try { return ProjectPlusUpdate.Check(Build.Library, target); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { return null; }
+    }
+
+    private bool CanUpdateApp => HasUpdate && !IsBusy;
+
+    /// <summary>"Update the app from this Project+": refresh the Project+ original (builds keep their songs), then re-check the sync.</summary>
+    [RelayCommand(CanExecute = nameof(CanUpdateApp))]
+    private async Task UpdateApp()
+    {
+        if (Changes is not { } changes || Folder is not { } folder) return;
+        IsBusy = true;
+        try
+        {
+            string backup = await Task.Run(() => ProjectPlusUpdate.Apply(Build.Library, changes));
+            UpdatedApp = true;
+            IsBusy = false;
+            await ChooseFolderAsync(folder);   // what Sync would do now
+            Summary = $"The app is up to date with this Project+. Your builds kept their songs; what it replaced is backed up in:\n{backup}\n\n{Summary}";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or MusicLibraryException or InvalidDataException)
+        {
+            Summary = $"The update stopped: {ex.Message}\n\nYour builds are untouched.";
+        }
         finally { IsBusy = false; }
     }
 

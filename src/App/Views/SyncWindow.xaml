@@ -15,6 +15,17 @@
             <TextBox Text="{Binding Folder, Mode=OneWay}" IsReadOnly="True" Padding="6,4" AutomationProperties.Name="Project+ folder" />
         </DockPanel>
         <CheckBox Content="Always use this folder (you can change it in Settings)" IsChecked="{Binding RememberFolder}" Margin="0,0,0,12" />
+        <!-- This Project+ changed (e.g. a Project+ update): offer to bring the app's Project+ original up to date first -->
+        <Border Padding="12,10" CornerRadius="4" BorderThickness="2" Margin="0,0,0,12" BorderBrush="{DynamicResource LagoonSecondBrush}"
+                Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <TextBlock Text="This Project+ looks updated" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding UpdateText}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,0,0,10"
+                           Text="Updating gives the app these Project+ songs, stages and pictures. Your builds keep their songs (new stages are added to them), and everything replaced is backed up first. Best done before you sync." />
+                <Button Content="Update the app from this Project+" Command="{Binding UpdateAppCommand}" HorizontalAlignment="Left" Padding="14,4" FontWeight="SemiBold" />
+            </StackPanel>
+        </Border>
         <Border Padding="12,10" CornerRadius="4" BorderThickness="1" Margin="0,0,0,12" MinHeight="70"
                 BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
             <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />

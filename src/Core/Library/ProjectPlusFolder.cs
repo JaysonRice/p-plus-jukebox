@@ -40,6 +40,26 @@ public sealed class ProjectPlusFolder
         return null;
     }
 
+    /// <summary>
+    /// The Project+ version as the build says it ("3.2.1"): from the Homebrew Channel's <c>apps\project+\meta.xml</c>
+    /// next to the Project+ folder (the exact one), else the launcher's <c>info.xml</c> ("3.2"). Null if neither is there.
+    /// </summary>
+    public string? ReadVersion()
+    {
+        string? parent = Path.GetDirectoryName(Root);
+        foreach (string file in new[] { parent is null ? "" : Path.Combine(parent, "apps", "project+", "meta.xml"), Path.Combine(Root, "info.xml") })
+        {
+            try
+            {
+                if (file.Length == 0 || !File.Exists(file)) continue;
+                var m = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(file), @"<version>\s*([^<]+?)\s*</version>");
+                if (m.Success) return m.Groups[1].Value;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return null;
+    }
+
     private ProjectPlusFolder(string root) => Root = Path.GetFullPath(root);
 
     /// <summary>

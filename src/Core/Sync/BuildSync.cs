@@ -127,8 +127,9 @@ public static class BuildSync
             }
         }
 
+        // Only songs the library has (so they can always come back): a song a Project+ update added is never deleted.
         var toDelete = targetSongs.All()
-            .Where(p => !used.Contains(p) && !(SongStore.HurryUpBase(p) is { } b && used.Contains(b)))
+            .Where(p => lib.Songs.Has(p) && !used.Contains(p) && !(SongStore.HurryUpBase(p) is { } b && used.Contains(b)))
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -240,6 +241,13 @@ public static class BuildSync
             progress?.Report((++done, total));
         }
         AppLibrary.DeleteEmptyFolders(targetSongs.Dir);
+
+        // Remember what this folder now has from the app (see SyncRecord).
+        var record = SyncRecord.Load(lib, plan.Target.Root);
+        foreach (string name in plan.Build.TracklistNames()) record.Tracklists[name] = SyncRecord.FingerprintOf(plan.Build.TracklistPath(name));
+        foreach (int preset in plan.Build.StageListPresets()) record.Presets[preset] = SyncRecord.FingerprintOf(plan.Build.StageListPath(preset));
+        if (plan.Build.Info.PresetNames is { } synced) record.PresetNames = [.. synced];
+        record.Save(lib);
 
         plan.Build.RememberSyncFolder(plan.Target.Root);
     }

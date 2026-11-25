@@ -12,6 +12,8 @@ public sealed class LibraryInfo
     /// <summary>Tracklist names the user's Project+ had when imported. Used to warn about names the game won't load.</summary>
     public List<string> KnownStages { get; set; } = [];
     public string? ProjectPlusFolder { get; set; }
+    /// <summary>The Project+ version the original came from ("3.2.1"), if the folder says.</summary>
+    public string? ProjectPlusVersion { get; set; }
     /// <summary>Song paths written with '\' that the first-run import converted to '/'. Shown to the user once.</summary>
     public int FixedPathsOnImport { get; set; }
 
@@ -22,6 +24,9 @@ public sealed class LibraryInfo
 
     /// <summary>The Project+ folder "Put on my Project+" always uses, chosen in Settings. Null: each build remembers its last one.</summary>
     public string? SyncFolder { get; set; }
+
+    /// <summary>The build that was open last, so the app reopens it.</summary>
+    public string? LastBuildId { get; set; }
 }
 
 /// <summary>Result of importing a music folder as a build.</summary>
@@ -34,6 +39,10 @@ public sealed record ImportResult(Build Build, int FixedPaths, int RenamedSongs)
 public sealed class AppLibrary
 {
     public const string DefaultBuildName = "Default";
+    /// <summary>What the app calls the hidden build that holds the Project+ songs and presets as imported (read only).</summary>
+    public const string OriginalBuildName = "Project+ original";
+    /// <summary>The build a new library starts with, a copy of the original.</summary>
+    public const string FirstBuildName = "My build";
 
     public string Root { get; }
     public string SongsDir => Path.Combine(Root, "songs");
@@ -103,6 +112,7 @@ public sealed class AppLibrary
                    ?? throw new MusicLibraryException("The library's settings file is damaged.");
         var lib = new AppLibrary(root, info);
         lib.FillInStageLists();
+        lib.EnsureUserBuild();
         return lib;
     }
 
@@ -122,6 +132,7 @@ public sealed class AppLibrary
             if (!File.Exists(StageIconsFile) && pplus is not null && File.Exists(pplus.StageSelectMenuFile))
                 File.Copy(pplus.StageSelectMenuFile, StageIconsFile);
             if (!File.Exists(StageAltsFile) && pplus is not null) SaveStageAlts(pplus);
+            if (Info.ProjectPlusVersion is null && pplus?.ReadVersion() is { } version) { Info.ProjectPlusVersion = version; SaveInfo(); }
             IReadOnlyList<string>? names = null;
             bool namesRead = false;
             foreach (Build build in Builds())
@@ -139,7 +150,7 @@ public sealed class AppLibrary
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    private void SaveStageAlts(ProjectPlusFolder pplus)
+    internal void SaveStageAlts(ProjectPlusFolder pplus)
     {
         var alts = Stages.StageAltTable.FromStageFolder(pplus.StageDir);
         if (alts.Count > 0) alts.Save(StageAltsFile);
@@ -172,6 +183,7 @@ public sealed class AppLibrary
             CreatedAt = DateTime.Now,
             KnownStages = pplus.TracklistNames().Order(StringComparer.OrdinalIgnoreCase).ToList(),
             ProjectPlusFolder = pplus.Root,
+            ProjectPlusVersion = pplus.ReadVersion(),
         };
         var lib = new AppLibrary(root, info);
         Directory.CreateDirectory(lib.SongsDir);
@@ -194,6 +206,7 @@ public sealed class AppLibrary
         lib.SaveStageAlts(pplus);
 
         lib.SaveInfo();
+        lib.EnsureUserBuild();
         return lib;
     }
 
@@ -218,7 +231,7 @@ public sealed class AppLibrary
     /// </summary>
     public string? SyncFolderFor(Build build) => Info.SyncFolder ?? build.Info.LastSyncFolder ?? Info.ProjectPlusFolder;
 
-    private void SaveInfo()
+    internal void SaveInfo()
     {
         Directory.CreateDirectory(Root);
         File.WriteAllText(InfoFile, JsonSerializer.Serialize(Info, Build.Json));
@@ -234,10 +247,43 @@ public sealed class AppLibrary
 
     public Build DefaultBuild => new(this, Info.DefaultBuildId);
 
+    /// <summary>Stage song lists a Project+ update brought: the app now knows them (no "not in your Project+" warning).</summary>
+    internal void AddKnownStages(IEnumerable<string> names)
+    {
+        foreach (string name in names) KnownStages.Add(name);
+        Info.KnownStages = KnownStages.Order(StringComparer.OrdinalIgnoreCase).ToList();
+        SaveInfo();
+    }
+
+    /// <summary>The builds people pick and edit: every build except the hidden Project+ original.</summary>
+    public IReadOnlyList<Build> UserBuilds() => Builds().Where(b => !b.IsDefault).ToList();
+
+    /// <summary>There's always a build to edit: a library with only the original gets "My build", a copy of it.</summary>
+    private void EnsureUserBuild()
+    {
+        if (!Directory.Exists(DefaultBuild.Dir) || UserBuilds().Count > 0) return;
+        try { NewBuild(FirstBuildName, DefaultBuild); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>The build to open: the one open last, else the first build.</summary>
+    public Build? StartBuild()
+    {
+        var builds = UserBuilds();
+        return builds.FirstOrDefault(b => b.Id == Info.LastBuildId) ?? builds.FirstOrDefault();
+    }
+
+    public void RememberOpenBuild(Build build)
+    {
+        if (Info.LastBuildId == build.Id) return;
+        Info.LastBuildId = build.Id;
+        SaveInfo();
+    }
+
     public Build GetBuild(string id) =>
         Directory.Exists(Path.Combine(BuildsDir, id)) ? new Build(this, id) : throw new MusicLibraryException("That build doesn't exist anymore.");
 
-    /// <summary>"New build": a copy of <paramref name="from"/> (the Default build if null) under a new name.</summary>
+    /// <summary>A new build: a copy of <paramref name="from"/> (the Project+ original if null) under a new name.</summary>
     public Build NewBuild(string name, Build? from = null)
     {
         from ??= DefaultBuild;
@@ -275,7 +321,8 @@ public sealed class AppLibrary
 
     public void DeleteBuild(Build build)
     {
-        if (build.IsDefault) throw new MusicLibraryException("The Default build can't be deleted. It's what new builds start from.");
+        if (build.IsDefault) throw new MusicLibraryException("The Project+ original can't be deleted. It's what new builds start from.");
+        if (UserBuilds().Count <= 1) throw new MusicLibraryException("This is your only build, so it can't be deleted. Make another build first.");
         Directory.Delete(build.Dir, recursive: true);
     }
 

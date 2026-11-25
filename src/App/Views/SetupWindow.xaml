@@ -7,7 +7,7 @@
         <TextBlock Text="Where is your Project+ folder?" Style="{StaticResource Heading}" Margin="0,0,0,8" />
         <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,16">
             Pick the "Project+" folder from your SD card or your computer. The app copies its songs and stage song lists
-            into your own library, as a build called "Default". Your Project+ folder isn't changed.
+            into your own library, as a build called "My build". Your Project+ folder isn't changed.
         </TextBlock>
         <DockPanel Margin="0,0,0,8">
             <Button x:Name="BrowseButton" DockPanel.Dock="Right" Content="Browse…" Click="Browse_Click" Padding="14,4" Margin="8,0,0,0" />

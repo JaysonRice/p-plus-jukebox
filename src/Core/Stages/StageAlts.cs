@@ -126,8 +126,11 @@ public sealed class StageAltTable
 
     // Saved as one line per version: slot (hex), button (hex), param name, tracklist name (empty if unknown).
 
-    public void Save(string path) => File.WriteAllLines(path, _slots.OrderBy(s => s.Key).SelectMany(s =>
-        s.Value.Select(a => $"{s.Key:X2}\t{a.Button:X4}\t{a.Param}\t{a.Tracklist}")));
+    public void Save(string path) => File.WriteAllText(path, ToText());
+
+    /// <summary>The table as the library saves it (equal text = equal tables).</summary>
+    public string ToText() => string.Concat(_slots.OrderBy(s => s.Key).SelectMany(s =>
+        s.Value.Select(a => $"{s.Key:X2}\t{a.Button:X4}\t{a.Param}\t{a.Tracklist}{Environment.NewLine}")));
 
     public static StageAltTable Load(string path)
     {
