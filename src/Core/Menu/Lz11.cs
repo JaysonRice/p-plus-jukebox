@@ -11,6 +11,9 @@ public static class Lz11
 {
     private const int MaxDistance = 0x1000, MinMatch = 3, MaxMatch = 0x10110;
 
+    /// <summary>Largest decompressed size accepted (real menu files are a few MB); stops a bad header asking for GBs.</summary>
+    private const int MaxOutput = 256 * 1024 * 1024;
+
     public static bool LooksCompressed(ReadOnlySpan<byte> data) => data.Length >= 4 && data[0] == 0x11;
 
     public static byte[] Decompress(ReadOnlySpan<byte> src)
@@ -18,6 +21,7 @@ public static class Lz11
         if (!LooksCompressed(src)) throw new InvalidDataException("This file isn't LZ11-compressed.");
         int size = src[1] | (src[2] << 8) | (src[3] << 16), p = 4;
         if (size == 0) { if (src.Length < 8) return []; size = BitConverter.ToInt32(src[4..8]); p = 8; }
+        if (size < 0 || size > MaxOutput) throw new InvalidDataException("The compressed data claims an impossible size, so the file is damaged.");
         var output = new byte[size];
         int o = 0;
         try
