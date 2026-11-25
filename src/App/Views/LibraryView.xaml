@@ -24,6 +24,9 @@
                 <CheckBox Content="Not in this build yet" IsChecked="{Binding OnlyNotInBuild}" VerticalAlignment="Center" Margin="0,0,14,0"
                           Visibility="{Binding IsPicking, Converter={StaticResource BoolToVis}}"
                           ToolTip="Only show songs no stage in this build uses yet. Untick to see every song in your library." />
+                <CheckBox Content="Hide Project+ songs" IsChecked="{Binding HideProjectPlusSongs}" VerticalAlignment="Center" Margin="0,0,14,0"
+                          Visibility="{Binding IsPicking, Converter={StaticResource BoolToVis}}"
+                          ToolTip="Hide the songs that come with Project+, so you only see the ones you added. Untick to see them too." />
                 <TextBlock Text="Sort by:" VerticalAlignment="Center" Margin="0,0,6,0" />
                 <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort}" DisplayMemberPath="Label" MinWidth="112" Margin="0,0,10,0"
                           ToolTip="Click a column heading in the table to flip the order (A to Z / Z to A, shortest / longest...)"
