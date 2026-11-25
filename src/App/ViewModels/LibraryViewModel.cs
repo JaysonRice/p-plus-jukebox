@@ -206,10 +206,18 @@ public sealed partial class LibraryViewModel : ObservableObject
         OnPropertyChanged(nameof(Usage));
     }
 
-    /// <summary>Search + "Show" filter (not collapsing).</summary>
+    /// <summary>Picking songs for a stage: only songs the current build doesn't have yet (on by default).</summary>
+    [ObservableProperty] private bool _onlyNotInBuild = true;
+    partial void OnOnlyNotInBuildChanged(bool value) => RefreshView();
+
+    /// <summary>Search + "Show" filter (not collapsing). Picking uses the "Not in this build yet" checkbox instead of "Show".</summary>
     private bool Matches(LibrarySongItem s)
     {
-        if (Usage is { } u && !u.Matches(s)) return false;
+        if (IsPicking)
+        {
+            if (OnlyNotInBuild && CurrentBuildName is { } build && s.UsedBy.Contains(build)) return false;
+        }
+        else if (Usage is { } u && !u.Matches(s)) return false;
         if (string.IsNullOrWhiteSpace(SearchText)) return true;
         string haystack = s.Name + " " + s.Series;
         return SearchText.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(w => haystack.Contains(w, StringComparison.OrdinalIgnoreCase));
